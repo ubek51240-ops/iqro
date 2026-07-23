@@ -1034,11 +1034,21 @@
                     switchTab(savedTab);
                     initSocket();
                     fetchAdminChatSessions();
-                } else {
-                    document.getElementById('adminLoginScreen').style.display = 'flex';
-                    document.getElementById('adminDashboard').style.display = 'none';
+                    return;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Backend ulanmagan (Static Mode):", err);
+                if (localStorage.getItem('iqro_admin_static_session') === 'true') {
+                    document.getElementById('adminLoginScreen').style.display = 'none';
+                    document.getElementById('adminDashboard').style.display = 'flex';
+                    const savedTab = localStorage.getItem('iqro_admin_active_tab') || 'books';
+                    switchTab(savedTab);
+                    return;
+                }
+            }
+
+            document.getElementById('adminLoginScreen').style.display = 'flex';
+            document.getElementById('adminDashboard').style.display = 'none';
         }
 
         async function handleAdminLogin(e) {
@@ -1056,18 +1066,29 @@
                 const data = await res.json();
                 if (data.success) {
                     checkAuth();
+                    return;
                 } else {
                     alert(data.message);
+                    return;
                 }
-            } catch (err) { alert("Login kirishda xatolik!"); }
+            } catch (err) {
+                // Backend ishlamayotgan paytda (masalan GitHub Pages statik ko'rishda)
+                if (username === 'admin' && password === '123') {
+                    localStorage.setItem('iqro_admin_static_session', 'true');
+                    checkAuth();
+                    return;
+                }
+                alert("Login yoki parol xato!");
+            }
         }
 
         async function handleAdminLogout() {
             try {
                 await fetch('/api/admin/logout', { method: 'POST' });
-                localStorage.removeItem('iqro_admin_active_tab');
-                checkAuth();
             } catch (err) { console.error(err); }
+            localStorage.removeItem('iqro_admin_active_tab');
+            localStorage.removeItem('iqro_admin_static_session');
+            checkAuth();
         }
 
         async function fetchAdminBooks() {
