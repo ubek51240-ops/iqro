@@ -627,6 +627,45 @@ def reply_comment(comment_id):
     conn.close()
     return jsonify({"success": True, "message": "Javobingiz qo'shildi!", "comments": updated_comments})
 
+# Book Rating API (Dynamic Average Rating)
+@app.route('/api/books/<int:book_id>/rate', methods=['POST'])
+def rate_book(book_id):
+    data = request.get_json() or {}
+    new_rating = float(data.get('rating', 5))
+
+    if new_rating < 1 or new_rating > 5:
+        return jsonify({"success": False, "message": "Baho 1 va 5 oraliqida bo'lishi kerak!"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT rating FROM books WHERE id = ?', (book_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"success": False, "message": "Kitob topilmadi!"}), 404
+
+    # Save to rating settings key
+    rates_key = f"book_ratings_{book_id}"
+    cursor.execute('SELECT value FROM settings WHERE key = ?', (rates_key,))
+    r_row = cursor.fetchone()
+    ratings_list = json.loads(r_row['value']) if r_row else [float(row['rating'] or 5.0)]
+
+    ratings_list.append(new_rating)
+    avg_rating = round(sum(ratings_list) / len(ratings_list), 1)
+
+    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (rates_key, json.dumps(ratings_list)))
+    cursor.execute('UPDATE books SET rating = ? WHERE id = ?', (avg_rating, book_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": f"Bahoingiz qabul qilindi! O'rtacha baho: ⭐ {avg_rating}",
+        "rating": avg_rating,
+        "total_votes": len(ratings_list)
+    })
+
 # Admin API: Kitob qo'shish
 @app.route('/api/admin/books', methods=['POST'])
 def add_book():
