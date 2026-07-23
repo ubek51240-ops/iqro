@@ -1403,11 +1403,18 @@
                 if (data.logged_in) {
                     document.getElementById('loginScreen').style.display = 'none';
                     loadDashboardData();
-                } else {
-                    document.getElementById('loginScreen').style.display = 'flex';
+                    return;
                 }
             } catch (e) {
-                console.error(e);
+                console.log("Backend offline or Netlify static host mode");
+            }
+
+            // Fallback for Netlify / Static hosting
+            if (localStorage.getItem('iqro_admin_logged_in') === 'true') {
+                document.getElementById('loginScreen').style.display = 'none';
+                loadDashboardData();
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
             }
         }
 
@@ -1426,20 +1433,35 @@
 
                 const data = await res.json();
                 if (res.ok && data.success) {
+                    localStorage.setItem('iqro_admin_logged_in', 'true');
                     document.getElementById('loginScreen').style.display = 'none';
                     loadDashboardData();
-                } else {
+                    return;
+                } else if (res.status === 401) {
                     alert(data.message || 'Login yoki parol noto\'g\'ri!');
+                    return;
                 }
             } catch (err) {
-                alert('Tizimga kirishda xatolik yuz berdi!');
+                console.log("Backend API not reachable, trying static fallback credentials");
+            }
+
+            // Netlify / Static server fallback authentication check
+            if (username === 'admin' && password === '123') {
+                localStorage.setItem('iqro_admin_logged_in', 'true');
+                document.getElementById('loginScreen').style.display = 'none';
+                loadDashboardData();
+            } else {
+                alert('Login yoki parol noto\'g\'ri!');
             }
         }
 
         // Logout handler
         async function handleLogout() {
             if (confirm('Admin panelidan chiqmoqchimisiz?')) {
-                await fetch('/api/admin/logout', { method: 'POST' });
+                localStorage.removeItem('iqro_admin_logged_in');
+                try {
+                    await fetch('/api/admin/logout', { method: 'POST' });
+                } catch (e) {}
                 location.reload();
             }
         }
