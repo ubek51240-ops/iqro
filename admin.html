@@ -1231,12 +1231,31 @@
             const text = input.value.trim();
             if (!text || !activeSessionId) return;
 
-            socket.emit('send_message', {
-                session_id: activeSessionId,
-                sender: 'admin',
-                user_name: 'Admin (IQRO)',
-                message: text
-            });
+            try {
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
+                    socket.emit('send_message', {
+                        session_id: activeSessionId,
+                        sender: 'admin',
+                        user_name: 'Admin (IQRO)',
+                        message: text
+                    });
+                } else {
+                    // Backend yo'q bo'lsa (Static/Netlify mode fallback)
+                    appendAdminChatMessage({
+                        sender: 'admin',
+                        user_name: 'Admin (IQRO)',
+                        message: text,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    });
+                }
+            } catch (err) {
+                appendAdminChatMessage({
+                    sender: 'admin',
+                    user_name: 'Admin (IQRO)',
+                    message: text,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+            }
 
             input.value = '';
         }

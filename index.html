@@ -1445,11 +1445,12 @@
             }
             let html = '';
             comments.forEach(c => {
-                const displayName = c.user ? c.user : 'Anonim';
+                const displayName = c.user_name || c.user || c.author || 'Kitobxon';
                 const isAnon = displayName === 'Anonim';
                 const nameStyle = isAnon ? 'color:#6c757d; font-style:italic;' : 'color:var(--primary); font-weight:700;';
                 const likesCount = c.likes || 0;
                 const replies = c.replies || [];
+                const commentDate = c.date || c.created_at || 'Hozirgina';
 
                 let repliesHtml = '';
                 if (replies.length > 0) {
@@ -1477,7 +1478,7 @@
                     <div style="background:#ffffff; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:0.88rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
                             <span style="${nameStyle}"><i class="fa-regular fa-circle-user"></i> ${displayName}</span>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">${c.date}</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${commentDate}</span>
                         </div>
                         <div style="color:#212529; margin-bottom:8px;">${c.text}</div>
 
