@@ -1699,9 +1699,10 @@
             // Fallback for Netlify / Static hosting mode
             const localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
             const defaultBooks = [
-                { id: 1, title: "O'tkan Kunlar", author: "Abdulla Qodiriy", price: 45000, category: "badiiy", rating: 4.9, image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80" },
-                { id: 2, title: "Atom Odatlari", author: "Djeyms Klir", price: 65000, category: "biznes", rating: 5.0, image: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&auto=format&fit=crop&q=80" },
-                { id: 3, title: "Ijtimoiy Odoblar", author: "Shayx Muhammad Sodiq", price: 75000, category: "diniy", rating: 5.0, image: "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=400&auto=format&fit=crop&q=80" }
+                { id: 1, title: "Saodat Asri Qissalari", author: "Lutfiy Qozonchi", price: 120000, category: "diniy", rating: 5.0, image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" },
+                { id: 2, title: "Uloq / Badiiy to'plam", author: "Abdulla Qodiriy", price: 45000, category: "badiiy", rating: 4.9, image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80" },
+                { id: 3, title: "Boy Ota, Kambag'al Ota", author: "Robert Kiyosaki", price: 65000, category: "biznes", rating: 4.8, image: "https://images.unsplash.com/photo-1592496431122-2349e0fbc666?w=400&q=80" },
+                { id: 4, title: "Atom Odatlar", author: "James Clear", price: 58000, category: "psixologiya", rating: 5.0, image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&q=80" }
             ];
             allBooks = [...localBooks, ...defaultBooks];
             renderBooks(allBooks);
