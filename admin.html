@@ -1255,33 +1255,38 @@
             const text = input.value.trim();
             if (!text || !activeSessionId) return;
 
+            const adminMsg = {
+                sender: 'admin',
+                user_name: 'Admin (IQRO)',
+                message: text,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
             try {
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('send_message', {
                         session_id: activeSessionId,
-                        sender: 'admin',
-                        user_name: 'Admin (IQRO)',
-                        message: text
-                    });
-                } else {
-                    // Backend yo'q bo'lsa (Static/Netlify mode fallback)
-                    appendAdminChatMessage({
-                        sender: 'admin',
-                        user_name: 'Admin (IQRO)',
-                        message: text,
-                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        ...adminMsg
                     });
                 }
-            } catch (err) {
-                appendAdminChatMessage({
-                    sender: 'admin',
-                    user_name: 'Admin (IQRO)',
-                    message: text,
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                });
+            } catch (err) { console.error(err); }
+
+            // Save admin message to localStorage so user side can read it
+            const storedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${activeSessionId}`) || '[]');
+            storedMsgs.push(adminMsg);
+            localStorage.setItem(`iqro_chat_msgs_${activeSessionId}`, JSON.stringify(storedMsgs));
+
+            // Update admin session preview
+            const localSessions = JSON.parse(localStorage.getItem('iqro_admin_static_chat_sessions') || '[]');
+            const session = localSessions.find(s => s.chat_session_id === activeSessionId);
+            if (session) {
+                session.last_message = `Admin: ${text}`;
+                localStorage.setItem('iqro_admin_static_chat_sessions', JSON.stringify(localSessions));
             }
 
+            appendAdminChatMessage(adminMsg);
             input.value = '';
+            fetchAdminChatSessions();
         }
 
         async function fetchSettings() {

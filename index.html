@@ -1209,12 +1209,18 @@
             } catch (err) { console.error(err); }
         }
 
+        let userChatPollInterval = null;
+
         function toggleChatWidget() {
             const box = document.getElementById('chatWidgetBox');
             box.classList.toggle('active');
             if (box.classList.contains('active')) {
                 initUserSocket();
                 loadUserChatHistory();
+                if (userChatPollInterval) clearInterval(userChatPollInterval);
+                userChatPollInterval = setInterval(loadUserChatHistory, 2000);
+            } else {
+                if (userChatPollInterval) clearInterval(userChatPollInterval);
             }
         }
 
