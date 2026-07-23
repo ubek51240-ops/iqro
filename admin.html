@@ -1135,19 +1135,27 @@
             try {
                 const res = await fetch('/api/admin/chat-sessions');
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.sessions.length > 0) {
                     updateUnreadBadges(data.total_unread);
                     renderChatSessions(data.sessions);
                     return;
                 }
             } catch (err) { console.error("Chat sessions fetch error:", err); }
 
-            // Backend ulanmagan statik namoyish rejimida demo chat ko'rsatish:
-            const demoSessions = [
-                { chat_session_id: 'demo-session-1', user_name: 'Mijoz (Demo)', last_message: 'Assalomu alaykum! Kitob yetkazib berish necha kun davom etadi?', unread_count: 1 }
-            ];
-            updateUnreadBadges(1);
-            renderChatSessions(demoSessions);
+            // Backend ulanmagan statik (Netlify) ko'rsatish rejimida localStorage-dan chatlarni o'qish:
+            const localSessions = JSON.parse(localStorage.getItem('iqro_admin_static_chat_sessions') || '[]');
+            if (localSessions.length === 0) {
+                localSessions.push({
+                    chat_session_id: 'demo-session-1',
+                    user_name: 'Mijoz (Demo)',
+                    last_message: 'Assalomu alaykum! Kitob yetkazib berish necha kun davom etadi?',
+                    unread_count: 1
+                });
+            }
+
+            const totalUnread = localSessions.reduce((sum, s) => sum + (s.unread_count || 0), 0);
+            updateUnreadBadges(totalUnread);
+            renderChatSessions(localSessions);
         }
 
         function updateUnreadBadges(totalUnread) {
@@ -1187,10 +1195,18 @@
             document.getElementById('adminChatInput').disabled = false;
             document.getElementById('adminSendBtn').disabled = false;
 
+            // Clear unread count for this session
+            const localSessions = JSON.parse(localStorage.getItem('iqro_admin_static_chat_sessions') || '[]');
+            const session = localSessions.find(s => s.chat_session_id === sessionId);
+            if (session) {
+                session.unread_count = 0;
+                localStorage.setItem('iqro_admin_static_chat_sessions', JSON.stringify(localSessions));
+            }
+
             try {
                 const res = await fetch(`/api/chat/messages/${sessionId}`);
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.messages.length > 0) {
                     const msgBox = document.getElementById('adminChatMessages');
                     msgBox.innerHTML = '';
                     data.messages.forEach(msg => appendAdminChatMessage(msg));
@@ -1199,15 +1215,23 @@
                 }
             } catch (err) { console.error("Chat message load error:", err); }
 
-            // Static fallback demo xabarlar
+            // Static fallback: Read real stored user messages from localStorage
+            const storedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${sessionId}`) || '[]');
             const msgBox = document.getElementById('adminChatMessages');
             msgBox.innerHTML = '';
-            appendAdminChatMessage({
-                sender: 'user',
-                user_name: userName,
-                message: 'Assalomu alaykum! Kitob yetkazib berish necha kun davom etadi?',
-                timestamp: 'Hozir'
-            });
+
+            if (storedMsgs.length === 0) {
+                appendAdminChatMessage({
+                    sender: 'user',
+                    user_name: userName,
+                    message: 'Assalomu alaykum! Kitob yetkazib berish necha kun davom etadi?',
+                    timestamp: 'Hozir'
+                });
+            } else {
+                storedMsgs.forEach(msg => appendAdminChatMessage(msg));
+            }
+
+            fetchAdminChatSessions();
         }
 
         function appendAdminChatMessage(msg) {
