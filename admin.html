@@ -1363,14 +1363,72 @@
             initSocket();
         });
 
+        // Sound Alert function
+        function playNotificationSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+            } catch (e) {}
+        }
+
+        // Custom Toast Notification
+        function showNotificationToast(title, body) {
+            playNotificationSound();
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: #1e293b;
+                color: white;
+                border-left: 5px solid #4f46e5;
+                padding: 16px 20px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                animation: slideInRight 0.3s ease;
+                min-width: 280px;
+                border: 1px solid #334155;
+            `;
+            toast.innerHTML = `
+                <div style="font-weight: 800; color: #818cf8; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span>${title}</span>
+                    <i class="fa-solid fa-bell" style="color: #f59e0b;"></i>
+                </div>
+                <div style="font-size: 0.85rem; color: #cbd5e1;">${body}</div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
         // Socket.io initialization
         function initSocket() {
             socket = io();
             socket.emit('join_admin');
 
+            // Live Chat Messages
             socket.on('receive_message', (data) => {
                 const sid = data.session_id || data.chat_session_id;
                 if (!sid) return;
+
+                const isMe = data.sender === 'admin';
 
                 if (!chatSessions[sid]) {
                     chatSessions[sid] = {
@@ -1382,16 +1440,23 @@
                 chatSessions[sid].messages.push({
                     sender: data.sender,
                     message: data.message,
-                    timestamp: data.timestamp
+                    timestamp: data.timestamp,
+                    is_read: isMe || currentChatSessionId === sid
                 });
 
                 renderChatSessions();
 
                 if (currentChatSessionId === sid) {
                     appendChatMessage(data);
-                } else {
-                    updateUnreadBadge();
+                } else if (!isMe) {
+                    showNotificationToast(`💬 ${data.user_name || 'Mijoz'} yozdi`, data.message);
                 }
+            });
+
+            // Live Orders
+            socket.on('new_order', (newOrder) => {
+                showNotificationToast(`🛍️ Yangi Buyurtma #${newOrder.order_id}`, `${newOrder.customer_name} - ${Number(newOrder.total_price).toLocaleString()} UZS`);
+                loadOrders();
             });
         }
 
@@ -1985,9 +2050,11 @@
         function renderChatSessions() {
             const list = document.getElementById('chatSessionsList');
             const sessionKeys = Object.keys(chatSessions);
+            let totalUnreadAll = 0;
             
             if (sessionKeys.length === 0) {
                 list.innerHTML = '<div style="padding: 20px; color: var(--text-muted); text-align: center;">Xabarlar yo\'q</div>';
+                updateTotalUnreadBadge(0);
                 return;
             }
 
@@ -1996,27 +2063,54 @@
                 const lastMsg = sess.messages[sess.messages.length - 1];
                 const active = sid === currentChatSessionId ? 'active' : '';
 
+                // Calculate unread count for this session
+                const unreadCount = (sess.messages || []).filter(m => m.sender === 'user' && !m.is_read).length;
+                totalUnreadAll += unreadCount;
+
                 let displayName = sess.user_name || 'Mijoz';
                 if (displayName === 'Mijoz' || displayName === 'Foydalanuvchi') {
                     displayName = `Mijoz #${idx + 1}`;
                 }
 
+                const unreadBadgeHtml = unreadCount > 0 ? `<span class="session-unread-badge">${unreadCount}</span>` : '';
+
                 return `
                     <div class="session-item ${active}" onclick="selectChatSession('${sid}', '${displayName}')">
-                        <div class="session-name">${displayName}</div>
+                        <div class="session-name">
+                            ${displayName} ${unreadBadgeHtml}
+                        </div>
                         <div class="session-last-msg">${lastMsg ? lastMsg.message : ''}</div>
                     </div>
                 `;
             }).join('');
+
+            updateTotalUnreadBadge(totalUnreadAll);
+        }
+
+        function updateTotalUnreadBadge(count) {
+            const badge = document.getElementById('chatBadge');
+            if (count > 0) {
+                badge.innerText = count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.innerText = '0';
+                badge.style.display = 'none';
+            }
         }
 
         function selectChatSession(sid, userName) {
             currentChatSessionId = sid;
             activeChatUserName = userName;
             document.getElementById('activeChatName').innerText = userName || 'Foydalanuvchi';
+
+            // Mark session messages as read
+            if (chatSessions[sid] && chatSessions[sid].messages) {
+                chatSessions[sid].messages.forEach(m => m.is_read = true);
+            }
+
             renderChatSessions();
 
-            const messages = chatSessions[sid].messages || [];
+            const messages = chatSessions[sid] ? chatSessions[sid].messages || [] : [];
             const box = document.getElementById('chatMessagesBox');
             box.innerHTML = messages.map(m => `
                 <div class="msg-bubble ${m.sender === 'admin' ? 'admin' : 'user'}">
@@ -2081,10 +2175,23 @@
             input.value = '';
         }
 
-        // Storage listener for cross-tab static chat sync
+        // Storage listener for cross-tab static chat and order sync
         window.addEventListener('storage', (e) => {
             if (e.key && e.key.startsWith('iqro_chat_msgs_')) {
+                const sid = e.key.replace('iqro_chat_msgs_', '');
+                const msgs = JSON.parse(e.newValue || '[]');
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg && lastMsg.sender === 'user') {
+                    showNotificationToast(`💬 ${lastMsg.user_name || 'Mijoz'} yozdi`, lastMsg.message);
+                }
                 loadChatHistory();
+            } else if (e.key === 'iqro_local_orders') {
+                const orders = JSON.parse(e.newValue || '[]');
+                const latestOrder = orders[0];
+                if (latestOrder) {
+                    showNotificationToast(`🛍️ Yangi Buyurtma #${latestOrder.order_id}`, `${latestOrder.customer_name} - ${Number(latestOrder.total_price).toLocaleString()} UZS`);
+                }
+                loadOrders();
             }
         });
 

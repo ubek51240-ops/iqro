@@ -864,6 +864,23 @@ def create_order():
     order_id = cursor.lastrowid
     conn.close()
 
+    order_payload = {
+        "order_id": order_id,
+        "customer_name": name,
+        "phone": phone,
+        "address": address,
+        "payment_method": payment_method,
+        "items": items,
+        "total_price": total_price,
+        "status": "Qabul qilindi",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+
+    try:
+        socketio.emit('new_order', order_payload, room='admin_room')
+    except Exception as e:
+        print("Socket order emit error:", e)
+
     return jsonify({
         "success": True,
         "message": f"Buyurtmangiz #{order_id} raqami bilan bazaga muvaffaqiyatli saqlandi!",
