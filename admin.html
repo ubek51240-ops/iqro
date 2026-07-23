@@ -1306,8 +1306,15 @@
             try {
                 const res = await fetch('/api/admin/orders');
                 const data = await res.json();
-                if (data.success) renderOrdersTable(data.orders);
-            } catch (err) { console.error(err); }
+                if (data.success) {
+                    renderOrdersTable(data.orders);
+                    return;
+                }
+            } catch (err) { console.error("Admin orders fetch error:", err); }
+
+            // Static mode local fallback orders
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            renderOrdersTable(localOrders);
         }
 
         function renderOrdersTable(orders) {

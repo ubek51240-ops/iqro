@@ -1694,32 +1694,42 @@
                 const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(searchPhone)}`);
                 const data = await res.json();
                 if (data.success) {
-                    if (data.orders.length === 0) {
-                        listDiv.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Aktiv buyurtmalar yo\'q.</p>';
-                    } else {
-                        let html = '';
-                        data.orders.forEach(o => {
-                            let badgeClass = 'status-qabul';
-                            if (o.status === "Yig'ilmoqda") badgeClass = 'status-yigilmoqda';
-                            else if (o.status === "Yuborildi") badgeClass = 'status-yuborildi';
-                            else if (o.status === "Yetkazib berildi") badgeClass = 'status-yetkazildi';
-
-                            const itemsList = o.items.map(i => `${i.title} (${i.quantity}x)`).join(', ');
-                            html += `
-                                <div style="border:1px solid var(--border-color); border-radius:6px; padding:12px; margin-bottom:10px;">
-                                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                                        <strong>Buyurtma #${o.order_id}</strong>
-                                        <span class="status-badge ${badgeClass}">${o.status}</span>
-                                    </div>
-                                    <p style="font-size:0.85rem; color:var(--text-muted);">${itemsList}</p>
-                                    <div style="font-weight:700; font-size:0.9rem; margin-top:4px;">${o.total_price.toLocaleString()} so'm</div>
-                                </div>
-                            `;
-                        });
-                        listDiv.innerHTML = html;
-                    }
+                    renderOrdersList(data.orders);
+                    return;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) { console.error("Order track fetch error:", err); }
+
+            // Local fallback orders
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            renderOrdersList(localOrders);
+        }
+
+        function renderOrdersList(orders) {
+            const listDiv = document.getElementById('trackOrdersList');
+            if (!orders || orders.length === 0) {
+                listDiv.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Aktiv buyurtmalar yo\'q.</p>';
+                return;
+            }
+            let html = '';
+            orders.forEach(o => {
+                let badgeClass = 'status-qabul';
+                if (o.status === "Yig'ilmoqda") badgeClass = 'status-yigilmoqda';
+                else if (o.status === "Yuborildi") badgeClass = 'status-yuborildi';
+                else if (o.status === "Yetkazib berildi") badgeClass = 'status-yetkazildi';
+
+                const itemsList = o.items.map(i => `${i.title} (${i.quantity}x)`).join(', ');
+                html += `
+                    <div style="border:1px solid var(--border-color); border-radius:6px; padding:12px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                            <strong>Buyurtma #${o.order_id}</strong>
+                            <span class="status-badge ${badgeClass}">${o.status}</span>
+                        </div>
+                        <p style="font-size:0.85rem; color:var(--text-muted);">${itemsList}</p>
+                        <div style="font-weight:700; font-size:0.9rem; margin-top:4px;">${o.total_price.toLocaleString()} so'm</div>
+                    </div>
+                `;
+            });
+            listDiv.innerHTML = html;
         }
 
         function openCheckoutModal() {
@@ -1741,6 +1751,8 @@
             const payment_method = document.getElementById('orderPayment').value;
             lastUserPhone = phone;
 
+            const totalSum = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
             try {
                 const response = await fetch('/api/order', {
                     method: 'POST',
@@ -1754,8 +1766,32 @@
                     updateCartUI();
                     closeAllModals();
                     openTrackModal();
+                    return;
                 }
-            } catch (err) { alert("Xatolik!"); }
+            } catch (err) { console.error("Checkout submit error:", err); }
+
+            // Backend ulanmagan statik namoyish rejimida buyurtmani saqlash:
+            const newOrder = {
+                order_id: Math.floor(1000 + Math.random() * 9000),
+                customer_name: name,
+                phone: phone,
+                address: address,
+                payment_method: payment_method,
+                items: [...cart],
+                total_price: totalSum,
+                status: 'Qabul qilindi',
+                created_at: new Date().toLocaleString()
+            };
+
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            localOrders.unshift(newOrder);
+            localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+
+            alert("Buyurtmangiz muvaffaqiyatli qabul qilindi!");
+            cart = [];
+            updateCartUI();
+            closeAllModals();
+            openTrackModal();
         }
 
         function openCart() {
