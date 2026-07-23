@@ -229,7 +229,10 @@ def admin_login():
     db_password = p_row['value'] if p_row else ADMIN_CREDENTIALS['password']
     conn.close()
 
-    if username == db_username and password == db_password:
+    req_username = str(username).strip() if username is not None else ''
+    req_password = str(password).strip() if password is not None else ''
+
+    if req_username == str(db_username).strip() and req_password == str(db_password).strip():
         session['admin_logged_in'] = True
         return jsonify({"success": True, "message": "Admin paneliga xush kelibsiz!"})
     else:
