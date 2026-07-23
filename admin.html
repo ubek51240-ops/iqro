@@ -1500,65 +1500,86 @@
 
         // Load and Render Comments for Admin Reply
         async function loadAdminComments() {
+            let books = [];
             try {
                 const res = await fetch('/api/books');
                 const data = await res.json();
-                const books = data.books || [];
-                const container = document.getElementById('adminCommentsList');
+                if (data.success && data.books) {
+                    books = data.books;
+                }
+            } catch (e) {
+                console.log("Backend offline, using static books/comments");
+            }
 
-                let html = '';
-                books.forEach(b => {
-                    if (b.comments && b.comments.length > 0) {
-                        b.comments.forEach(c => {
-                            let repliesHtml = '';
-                            if (c.replies && c.replies.length > 0) {
-                                repliesHtml = c.replies.map(r => `
-                                    <div style="background: rgba(79, 70, 229, 0.15); border-left: 3px solid var(--primary); padding: 8px 12px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem;">
-                                        <div style="color: var(--accent); font-weight: 700;">${r.user} <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">${r.date || ''}</span></div>
-                                        <div style="color: white; margin-top: 2px;">${r.text}</div>
-                                    </div>
-                                `).join('');
-                            }
+            if (!books || books.length === 0) {
+                books = typeof allBooks !== 'undefined' ? allBooks : [];
+            }
 
-                            html += `
-                                <div class="table-card" style="padding: 20px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <div style="font-weight: 700; color: var(--accent); font-size: 0.95rem;">
-                                            <i class="fa-solid fa-book" style="margin-right: 6px;"></i> ${b.title}
-                                        </div>
-                                        <div style="font-size: 0.8rem; color: var(--text-muted);">${c.date || ''}</div>
-                                    </div>
-                                    <div style="font-weight: 700; color: white; margin-bottom: 4px;">${c.user} yozdi:</div>
-                                    <div style="color: #cbd5e1; background: rgba(15, 23, 42, 0.5); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border);">
-                                        ${c.text}
-                                    </div>
+            const container = document.getElementById('adminCommentsList');
+            let html = '';
 
-                                    ${repliesHtml}
-
-                                    <!-- Reply Input Box -->
-                                    <div style="display: flex; gap: 10px; margin-top: 12px;">
-                                        <input type="text" id="adminReplyInput_${c.id}" placeholder="Admin javobini yozing..." style="flex: 1; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); color: white; outline: none; font-size: 0.9rem;">
-                                        <button class="btn-add" onclick="submitAdminReply(${c.id})" style="padding: 10px 20px; font-size: 0.88rem;">
-                                            <i class="fa-solid fa-reply"></i> Javob berish
-                                        </button>
-                                    </div>
-                                </div>
-                            `;
-                        });
+            books.forEach(b => {
+                // Combine API comments and localStorage comments for static mode
+                let comments = b.comments || [];
+                const localComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${b.id}`) || '[]');
+                
+                // Merge unique comments by id/text
+                const mergedComments = [...comments];
+                localComments.forEach(lc => {
+                    if (!mergedComments.some(mc => mc.id == lc.id || (mc.text == lc.text && mc.user == lc.user))) {
+                        mergedComments.push(lc);
                     }
                 });
 
-                if (!html) {
-                    container.innerHTML = '<div class="table-card" style="padding: 30px; text-align: center; color: var(--text-muted);">Hozircha hech qanday izohlar mavjud emas.</div>';
-                } else {
-                    container.innerHTML = html;
+                if (mergedComments.length > 0) {
+                    mergedComments.forEach(c => {
+                        let repliesHtml = '';
+                        const replies = c.replies || c.replies_json || [];
+                        if (replies.length > 0) {
+                            repliesHtml = replies.map(r => `
+                                <div style="background: rgba(79, 70, 229, 0.15); border-left: 3px solid var(--primary); padding: 8px 12px; border-radius: 6px; margin-top: 8px; font-size: 0.85rem;">
+                                    <div style="color: var(--accent); font-weight: 700;">${r.user || r.user_name || 'Admin'} <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal; margin-left: 8px;">${r.date || ''}</span></div>
+                                    <div style="color: white; margin-top: 2px;">${r.text}</div>
+                                </div>
+                            `).join('');
+                        }
+
+                        html += `
+                            <div class="table-card" style="padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="font-weight: 700; color: var(--accent); font-size: 0.95rem;">
+                                        <i class="fa-solid fa-book" style="margin-right: 6px;"></i> ${b.title}
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">${c.date || c.created_date || ''}</div>
+                                </div>
+                                <div style="font-weight: 700; color: white; margin-bottom: 4px;">${c.user || c.user_name || 'Mijoz'} yozdi:</div>
+                                <div style="color: #cbd5e1; background: rgba(15, 23, 42, 0.5); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border);">
+                                    ${c.text || c.comment_text || ''}
+                                </div>
+
+                                ${repliesHtml}
+
+                                <!-- Reply Input Box -->
+                                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                                    <input type="text" id="adminReplyInput_${c.id}" placeholder="Admin javobini yozing..." style="flex: 1; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); color: white; outline: none; font-size: 0.9rem;">
+                                    <button class="btn-add" onclick="submitAdminReply(${c.id}, ${b.id})" style="padding: 10px 20px; font-size: 0.88rem;">
+                                        <i class="fa-solid fa-reply"></i> Javob berish
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
                 }
-            } catch (e) {
-                console.error(e);
+            });
+
+            if (!html) {
+                container.innerHTML = '<div class="table-card" style="padding: 30px; text-align: center; color: var(--text-muted);">Hozircha hech qanday izohlar mavjud emas.</div>';
+            } else {
+                container.innerHTML = html;
             }
         }
 
-        async function submitAdminReply(commentId) {
+        async function submitAdminReply(commentId, bookId) {
             const input = document.getElementById(`adminReplyInput_${commentId}`);
             const text = input ? input.value.trim() : '';
             if (!text) return alert("Javob matnini kiriting!");
@@ -1574,12 +1595,25 @@
                 if (data.success) {
                     alert("Javobingiz muvaffaqiyatli yuborildi!");
                     loadAdminComments();
-                } else {
-                    alert(data.message || 'Xatolik yuz berdi!');
+                    return;
                 }
             } catch (e) {
-                alert('Javob yuborishda xatolik yuz berdi!');
+                console.log("Backend offline, saving reply to localStorage");
             }
+
+            // Static fallback for Netlify
+            if (bookId) {
+                const localComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${bookId}`) || '[]');
+                const target = localComments.find(c => c.id == commentId);
+                if (target) {
+                    if (!target.replies) target.replies = [];
+                    target.replies.push({ user: 'Admin 🛡️', text: text, date: new Date().toLocaleString() });
+                    localStorage.setItem(`iqro_book_comments_${bookId}`, JSON.stringify(localComments));
+                }
+            }
+
+            alert("Javobingiz saqlandi!");
+            loadAdminComments();
         }
 
         // Load Books
@@ -1921,11 +1955,31 @@
             try {
                 const res = await fetch('/api/admin/chat-history');
                 const data = await res.json();
-                chatSessions = data.sessions || {};
-                renderChatSessions();
+                if (data.success && data.sessions) {
+                    chatSessions = data.sessions;
+                    renderChatSessions();
+                    return;
+                }
             } catch (e) {
-                console.error(e);
+                console.log("Backend offline, using localStorage chat sync fallback");
             }
+
+            // Fallback for Netlify / Static hosting mode (reads from local storage)
+            chatSessions = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('iqro_chat_msgs_')) {
+                    const sid = key.replace('iqro_chat_msgs_', '');
+                    const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (msgs.length > 0) {
+                        chatSessions[sid] = {
+                            user_name: msgs[0].user_name || 'Mijoz',
+                            messages: msgs
+                        };
+                    }
+                }
+            }
+            renderChatSessions();
         }
 
         function renderChatSessions() {
@@ -1994,15 +2048,45 @@
             const message = input.value.trim();
             if (!message || !currentChatSessionId) return;
 
-            socket.emit('send_message', {
-                session_id: currentChatSessionId,
+            const adminMsgObj = {
                 sender: 'admin',
-                user_name: 'Administrator',
-                message: message
-            });
+                user_name: 'Admin 🛡️',
+                message: message,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            try {
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
+                    socket.emit('send_message', {
+                        session_id: currentChatSessionId,
+                        ...adminMsgObj
+                    });
+                }
+            } catch (e) {}
+
+            // Save to localStorage for static mode sync & update UI
+            const key = `iqro_chat_msgs_${currentChatSessionId}`;
+            const existingMsgs = JSON.parse(localStorage.getItem(key) || '[]');
+            existingMsgs.push(adminMsgObj);
+            localStorage.setItem(key, JSON.stringify(existingMsgs));
+
+            if (!chatSessions[currentChatSessionId]) {
+                chatSessions[currentChatSessionId] = { user_name: activeChatUserName || 'Mijoz', messages: [] };
+            }
+            chatSessions[currentChatSessionId].messages.push(adminMsgObj);
+
+            appendChatMessage(adminMsgObj);
+            renderChatSessions();
 
             input.value = '';
         }
+
+        // Storage listener for cross-tab static chat sync
+        window.addEventListener('storage', (e) => {
+            if (e.key && e.key.startsWith('iqro_chat_msgs_')) {
+                loadChatHistory();
+            }
+        });
 
         function updateUnreadBadge() {
             const badge = document.getElementById('chatBadge');
