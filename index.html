@@ -713,7 +713,110 @@
         .status-qabul { background: #fef3c7; color: #d97706; }
         .status-yigilmoqda { background: #e0f2fe; color: #0284c7; }
         .status-yuborildi { background: #fae8ff; color: #c026d3; }
-        .status-yetkazildi { background: #dcfce7; color: #16a34a; }
+        /* Responsive Media Queries (Mobile & Tablet) */
+        @media (max-width: 992px) {
+            .hero-banner {
+                padding: 30px;
+            }
+            .hero-text h1 {
+                font-size: 1.8rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            .search-bar {
+                max-width: 100%;
+                width: 100%;
+            }
+            .header-actions {
+                justify-content: space-around;
+                width: 100%;
+            }
+            .hero-banner {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+                padding: 25px 15px;
+            }
+            .hero-text h1 {
+                font-size: 1.5rem;
+            }
+            .hero-text p {
+                font-size: 0.95rem;
+            }
+            .book-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+            .book-cover-wrap {
+                height: 190px;
+            }
+            .book-title {
+                font-size: 0.95rem;
+            }
+            .quick-view-body {
+                grid-template-columns: 1fr;
+            }
+            .quick-view-img {
+                height: 200px;
+                margin: 0 auto;
+            }
+            .cart-modal {
+                width: 100%;
+                right: -100%;
+            }
+            .chat-widget-box {
+                width: calc(100vw - 30px);
+                right: 15px;
+                bottom: 85px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 12px;
+            }
+            .top-bar .container {
+                flex-direction: column;
+                text-align: center;
+            }
+            .logo {
+                text-align: center;
+                font-size: 1.8rem;
+            }
+            .header-actions {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .btn-action {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+                flex: 1;
+                text-align: center;
+            }
+            .book-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .book-card {
+                padding: 10px;
+            }
+            .modal-popup {
+                padding: 20px 15px;
+                width: 95%;
+            }
+            .toast {
+                right: 15px;
+                left: 15px;
+                bottom: 20px;
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>

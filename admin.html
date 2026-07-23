@@ -521,6 +521,65 @@
             transform: translateX(0);
         }
 
+        /* Responsive Media Queries (Mobile & Tablet) */
+        @media (max-width: 992px) {
+            .admin-dashboard {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                padding: 15px;
+            }
+            .brand {
+                margin-bottom: 15px;
+            }
+            .menu-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .menu-item {
+                margin-bottom: 0;
+            }
+            .menu-link {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .chat-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .chat-sessions-list {
+                max-height: 200px;
+            }
+            .chat-messages-box {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-content {
+                padding: 15px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .content-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .table-card {
+                overflow-x: auto;
+            }
+            table {
+                min-width: 500px;
+            }
+        }
+
         /* Modal Form */
         .modal {
             position: fixed;
