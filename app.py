@@ -458,12 +458,9 @@ def handle_send_message(data):
 # Admin API: Rasm yuklash
 @app.route('/api/admin/upload', methods=['POST'])
 def upload_image():
-    if 'image' not in request.files:
+    file = request.files.get('file') or request.files.get('image')
+    if not file or file.filename == '':
         return jsonify({"success": False, "message": "Rasm fayli tanlanmadi!"}), 400
-
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({"success": False, "message": "Fayl tanlanmadi!"}), 400
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
@@ -471,7 +468,7 @@ def upload_image():
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
         file.save(filepath)
         image_url = f"/uploads/{unique_filename}"
-        return jsonify({"success": True, "message": "Rasm muvaffaqiyatli yuklandi!", "image_url": image_url})
+        return jsonify({"success": True, "message": "Rasm muvaffaqiyatli yuklandi!", "url": image_url, "image_url": image_url})
     else:
         return jsonify({"success": False, "message": "Faqat rasm fayllari (jpg, png, webp) ruxsat etilgan!"}), 400
 

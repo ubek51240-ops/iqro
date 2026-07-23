@@ -1748,12 +1748,21 @@
             let imageUrl = document.getElementById('bookImage').value;
 
             if (fileInput.files.length > 0) {
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-                const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-                const uploadData = await uploadRes.json();
-                if (uploadData.success) {
-                    imageUrl = uploadData.url;
+                try {
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+                    const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.success) {
+                        imageUrl = uploadData.url || uploadData.image_url;
+                    }
+                } catch (err) {
+                    console.log("Server upload failed, converting to Base64 data URL for static mode");
+                    imageUrl = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.readAsDataURL(fileInput.files[0]);
+                    });
                 }
             }
 
