@@ -1320,7 +1320,17 @@
                     if (data.settings.admin_username) {
                         document.getElementById('newAdminUsername').value = data.settings.admin_username;
                     }
+                    return;
                 }
+            } catch (err) {
+                console.log("Static mode setting fetch fallback");
+            }
+            try {
+                const localData = JSON.parse(localStorage.getItem('iqro_static_site_settings') || '{}');
+                document.getElementById('settingAddress').value = localData.store_address || 'Farg\'ona shaxar, Al-Farg'oniy ko'chasi 15-uy';
+                document.getElementById('settingMapsUrl').value = localData.maps_url || 'https://maps.google.com';
+                document.getElementById('settingPhone').value = localData.phone_number || '+998 90 123 45 67';
+                document.getElementById('settingEmail').value = localData.email_address || 'info@iqroboshlangich.uz';
             } catch (err) { console.error(err); }
         }
 
@@ -1331,17 +1341,25 @@
             const phone_number = document.getElementById('settingPhone').value;
             const email_address = document.getElementById('settingEmail').value;
 
+            const settingsPayload = { store_address, maps_url, phone_number, email_address };
+
             try {
                 const res = await fetch('/api/admin/settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ store_address, maps_url, phone_number, email_address })
+                    body: JSON.stringify(settingsPayload)
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    localStorage.setItem('iqro_static_site_settings', JSON.stringify(settingsPayload));
+                    alert(data.message || "Sozlamalar saqlandi!");
+                    return;
                 }
-            } catch (err) { alert("Sozlamalarni saqlashda xatolik!"); }
+            } catch (err) {
+                // Static / GitHub Pages mode fallback
+                localStorage.setItem('iqro_static_site_settings', JSON.stringify(settingsPayload));
+                alert("Sozlamalar muvaffaqiyatli saqlandi!");
+            }
         }
 
         async function uploadImageFile(fileInput) {

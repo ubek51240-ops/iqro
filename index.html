@@ -1184,38 +1184,51 @@
         }
 
         async function fetchSettings() {
+            let settings = null;
             try {
                 const res = await fetch('/api/settings');
                 const data = await res.json();
                 if (data.success && data.settings) {
-                    if (data.settings.store_address) {
-                        document.getElementById('footerAddressText').textContent = data.settings.store_address;
+                    settings = data.settings;
+                }
+            } catch (err) {
+                console.log("Static mode settings fetch fallback");
+            }
+
+            if (!settings) {
+                try {
+                    settings = JSON.parse(localStorage.getItem('iqro_static_site_settings') || '{}');
+                } catch (e) {}
+            }
+
+            if (settings) {
+                if (settings.store_address) {
+                    document.getElementById('footerAddressText').textContent = settings.store_address;
+                }
+                if (settings.maps_url) {
+                    document.getElementById('footerMapsLink').href = settings.maps_url;
+                }
+                if (settings.phone_number) {
+                    const cleanPhone = settings.phone_number.replace(/[^0-9+]/g, '');
+                    const topPhone = document.getElementById('topBarPhone');
+                    const footPhone = document.getElementById('footerPhone');
+                    if (topPhone) {
+                        topPhone.textContent = settings.phone_number;
+                        topPhone.href = `tel:${cleanPhone}`;
                     }
-                    if (data.settings.maps_url) {
-                        document.getElementById('footerMapsLink').href = data.settings.maps_url;
-                    }
-                    if (data.settings.phone_number) {
-                        const cleanPhone = data.settings.phone_number.replace(/[^0-9+]/g, '');
-                        const topPhone = document.getElementById('topBarPhone');
-                        const footPhone = document.getElementById('footerPhone');
-                        if (topPhone) {
-                            topPhone.textContent = data.settings.phone_number;
-                            topPhone.href = `tel:${cleanPhone}`;
-                        }
-                        if (footPhone) {
-                            footPhone.textContent = data.settings.phone_number;
-                            footPhone.href = `tel:${cleanPhone}`;
-                        }
-                    }
-                    if (data.settings.email_address) {
-                        const footEmail = document.getElementById('footerEmail');
-                        if (footEmail) {
-                            footEmail.textContent = data.settings.email_address;
-                            footEmail.href = `mailto:${data.settings.email_address}`;
-                        }
+                    if (footPhone) {
+                        footPhone.textContent = settings.phone_number;
+                        footPhone.href = `tel:${cleanPhone}`;
                     }
                 }
-            } catch (err) { console.error(err); }
+                if (settings.email_address) {
+                    const footEmail = document.getElementById('footerEmail');
+                    if (footEmail) {
+                        footEmail.textContent = settings.email_address;
+                        footEmail.href = `mailto:${settings.email_address}`;
+                    }
+                }
+            }
         }
 
         let userChatPollInterval = null;
