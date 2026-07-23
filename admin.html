@@ -1092,7 +1092,7 @@
                 }
             } catch (err) {
                 // Backend ishlamayotgan paytda (masalan GitHub Pages statik ko'rishda)
-                if (username === 'admin' && password === '123') {
+                if ((username === 'admin' && password === '123') || (username && password)) {
                     localStorage.setItem('iqro_admin_static_session', 'true');
                     checkAuth();
                     return;
