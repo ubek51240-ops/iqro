@@ -1363,13 +1363,27 @@
 
                 const data = await res.json();
                 if (data.success) {
-                    selectElement.className = 'status-select';
-                    if (newStatus === "Qabul qilindi") selectElement.classList.add('qabul');
-                    else if (newStatus === "Yig'ilmoqda") selectElement.classList.add('yigilmoqda');
-                    else if (newStatus === "Yuborildi") selectElement.classList.add('yuborildi');
-                    else if (newStatus === "Yetkazib berildi") selectElement.classList.add('yetkazildi');
+                    updateSelectStyle(selectElement, newStatus);
+                    return;
                 }
-            } catch (err) { alert("Statusni yangilashda xatolik!"); }
+            } catch (err) { console.error("Order status update API error:", err); }
+
+            // Static mode local storage status update
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            const order = localOrders.find(o => o.order_id == orderId);
+            if (order) {
+                order.status = newStatus;
+                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+            }
+            updateSelectStyle(selectElement, newStatus);
+        }
+
+        function updateSelectStyle(selectElement, newStatus) {
+            selectElement.className = 'status-select';
+            if (newStatus === "Qabul qilindi") selectElement.classList.add('qabul');
+            else if (newStatus === "Yig'ilmoqda") selectElement.classList.add('yigilmoqda');
+            else if (newStatus === "Yuborildi") selectElement.classList.add('yuborildi');
+            else if (newStatus === "Yetkazib berildi") selectElement.classList.add('yetkazildi');
         }
 
         function openBookModal() {
