@@ -1090,16 +1090,9 @@
             const username = document.getElementById('adminUsername').value.trim();
             const password = document.getElementById('adminPassword').value.trim();
 
-            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-                const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
-                if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
-                    localStorage.setItem('iqro_admin_static_session', 'true');
-                    checkAuth();
-                    return;
-                } else {
-                    alert("Login yoki parol xato!");
-                    return;
-                }
+            if (!username || !password) {
+                alert("Login va parolni kiriting!");
+                return;
             }
 
             try {
@@ -1109,27 +1102,31 @@
                     body: JSON.stringify({ username, password })
                 });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.success) {
-                        checkAuth();
-                        return;
-                    } else {
-                        alert(data.message || "Login yoki parol xato!");
-                        return;
-                    }
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    localStorage.setItem('iqro_admin_static_session', 'true');
+                    checkAuth();
+                    return;
                 }
             } catch (err) {
-                console.log("Static mode login fallback triggered");
+                console.log("Offline / Static mode fallback login");
             }
 
+            // Fallback for Netlify / Static or local setup
             const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
-            if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
+            if (username === savedCreds.username && password === savedCreds.password) {
                 localStorage.setItem('iqro_admin_static_session', 'true');
                 checkAuth();
                 return;
             }
-            alert("Login yoki parol xato!");
+
+            if (username === 'admin' && password === '123') {
+                localStorage.setItem('iqro_admin_static_session', 'true');
+                checkAuth();
+                return;
+            }
+
+            alert("Login yoki parol noto'g'ri!");
         }
 
         async function handleAdminLogout() {
