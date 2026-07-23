@@ -1175,6 +1175,10 @@
             const totalUnread = localSessions.reduce((sum, s) => sum + (s.unread_count || 0), 0);
             updateUnreadBadges(totalUnread);
             renderChatSessions(localSessions);
+
+            if (!activeSessionId && localSessions.length > 0) {
+                openAdminChatSession(localSessions[0].chat_session_id, localSessions[0].user_name);
+            }
         }
 
         function updateUnreadBadges(totalUnread) {
@@ -1211,6 +1215,8 @@
 
         function loadAdminCurrentChat() {
             if (!activeSessionId) return;
+            document.getElementById('adminChatInput').disabled = false;
+            document.getElementById('adminSendBtn').disabled = false;
             const storedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${activeSessionId}`) || '[]');
             const msgBox = document.getElementById('adminChatMessages');
             if (msgBox) {
