@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IQRO.UZ - Admin Boshqaruv Paneli</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Socket.io CDN -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #0d47a1;
+            --primary-light: #1976d2;
+            --primary-dark: #0a3578;
+            --accent: #d4af37;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --radius-md: 12px;
+            --shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* Admin Login Screen Overlay */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #09172a 0%, #0d47a1 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .login-card .brand {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .login-card .brand i { color: var(--accent); }
+
+        .login-card p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-login-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-login-submit:hover {
+            box-shadow: 0 6px 16px rgba(13, 71, 161, 0.3);
+        }
+
+        /* Dashboard Container */
+        .admin-dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 260px;
+            background: #09172a;
+            color: white;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 40px;
+            padding: 0 10px;
+        }
+
+        .brand i {
+            color: var(--accent);
+        }
+
+        .menu-list {
+            list-style: none;
+        }
+
+        .menu-item {
+            margin-bottom: 8px;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .menu-link:hover, .menu-link.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* UNREAD NOTIFICATION BADGE (RED) */
+        .unread-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-left: auto;
+            display: none;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .session-unread-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 12px;
+            float: right;
+        }
+
+        .btn-logout {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            color: #ef4444;
+            text-decoration: none;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            margin-top: 12px;
+            background: none;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .site-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            margin-top: auto;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .header-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .btn-add {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 30px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.2);
+            transition: all 0.2s;
+        }
+
+        .btn-add:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Table Design */
+        .table-card {
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: #f1f5f9;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        td {
+            font-size: 0.95rem;
+            vertical-align: middle;
+        }
+
+        .book-thumb {
+            width: 45px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .badge-cat {
+            background: rgba(13, 71, 161, 0.1);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        /* Status Select */
+        .status-select {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 1px solid var(--border-color);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .status-select.qabul { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+        .status-select.yigilmoqda { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+        .status-select.yuborildi { background: #fae8ff; color: #86198f; border-color: #f5d0fe; }
+        .status-select.yetkazildi { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+
+        .price-text {
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-action-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-edit:hover {
+            background: #e0f2fe;
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-delete:hover {
+            background: #fee2e2;
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        /* Real-Time Chat Section */
+        .chat-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            height: 600px;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .chat-sessions-list {
+            border-right: 1px solid var(--border-color);
+            background: #f8fafc;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .session-item:hover, .session-item.active {
+            background: #e2e8f0;
+        }
+
+        .session-user { font-weight: 700; font-size: 0.95rem; color: var(--text-main); }
+        .session-preview { font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+        .chat-main-area {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: #ffffff;
+        }
+
+        .chat-messages-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f1f5f9;
+        }
+
+        .chat-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            position: relative;
+        }
+
+        .bubble-user {
+            align-self: flex-start;
+            background: white;
+            color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-top-left-radius: 2px;
+        }
+
+        .bubble-admin {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-top-right-radius: 2px;
+        }
+
+        .chat-time {
+            font-size: 0.7rem;
+            margin-top: 4px;
+            opacity: 0.75;
+            text-align: right;
+        }
+
+        .chat-input-row {
+            display: flex;
+            padding: 14px;
+            border-top: 1px solid var(--border-color);
+            background: white;
+            gap: 10px;
+        }
+
+        .chat-input-row input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .btn-chat-send {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Toast Sound Alert Popup */
+        .admin-toast-alert {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            background: #09172a;
+            color: white;
+            padding: 14px 22px;
+            border-radius: 12px;
+            border-left: 5px solid #ef4444;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 99999;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .admin-toast-alert.show {
+            transform: translateX(0);
+        }
+
+        /* Modal Form */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal.active { opacity: 1; visibility: visible; }
+
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-width: 540px;
+            border-radius: var(--radius-md);
+            padding: 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 { font-size: 1.3rem; font-weight: 800; }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .image-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 8px;
+        }
+
+        .preview-img {
+            width: 60px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            display: none;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Notification Toast Popup -->
+    <div class="admin-toast-alert" id="adminToastAlert">
+        <i class="fa-solid fa-bell" style="color: #ef4444; font-size: 1.4rem;"></i>
+        <div>
+            <div style="font-weight: 800; font-size: 0.95rem;" id="toastTitle">Yangi Xabar!</div>
+            <div style="font-size: 0.85rem; color: #94a3b8;" id="toastBody">Mijozdan yangi xabar keldi</div>
+        </div>
+    </div>
+
+    <!-- Admin Login Screen -->
+    <div class="login-screen" id="adminLoginScreen">
+        <div class="login-card">
+            <div class="brand">
+                <i class="fa-solid fa-book-bookmark"></i> IQRO Admin
+            </div>
+            <p>Boshqaruv paneliga kirish uchun login va parolingizni kiriting</p>
+            <form onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <label>Admin Login</label>
+                    <input type="text" id="adminUsername" placeholder="masalan: admin" required>
+                </div>
+                <div class="form-group">
+                    <label>Parol</label>
+                    <input type="password" id="adminPassword" placeholder="******" required>
+                </div>
+                <button type="submit" class="btn-login-submit">
+                    <i class="fa-solid fa-right-to-bracket"></i> Tizimga Kirish
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard Container -->
+    <div class="admin-dashboard" id="adminDashboard" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div>
+                <div class="brand">
+                    <i class="fa-solid fa-book-bookmark"></i> IQRO Admin
+                </div>
+                <ul class="menu-list">
+                    <li class="menu-item">
+                        <a class="menu-link active" id="menuBooks" onclick="switchTab('books')">
+                            <i class="fa-solid fa-book"></i> Kitoblar Boshqaruvi
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a class="menu-link" id="menuOrders" onclick="switchTab('orders')">
+                            <i class="fa-solid fa-cart-flatbed"></i> Buyurtmalar & Status
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a class="menu-link" id="menuChat" onclick="switchTab('chat')">
+                            <i class="fa-solid fa-comments"></i> Real-Time Chat 💬
+                            <span class="unread-badge" id="menuUnreadBadge">0</span>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a class="menu-link" id="menuComments" onclick="switchTab('comments')">
+                            <i class="fa-solid fa-comment-dots"></i> Izohlar Boshqaruvi 💬
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a class="menu-link" id="menuSettings" onclick="switchTab('settings')">
+                            <i class="fa-solid fa-sliders"></i> Do'kon Sozlamalari ⚙️
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div>
+                <a href="/" class="site-link">
+                    <i class="fa-solid fa-store"></i> Asosiy Do'konga O'tish
+                </a>
+                <button onclick="handleAdminLogout()" class="btn-logout">
+                    <i class="fa-solid fa-power-off"></i> Chiqish (Logout)
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Books Section -->
+            <div id="booksSection">
+                <div class="header-title">
+                    <div>
+                        <h1>Kitoblar Katalogi va Narxlar</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Barcha kitoblarni tahrirlash va kompyuterdan JPG/PNG rasm yuklash paneli</p>
+                    </div>
+                    <button class="btn-add" onclick="openBookModal()">
+                        <i class="fa-solid fa-plus"></i> Yangi Kitob Qo'shish
+                    </button>
+                </div>
+
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rasm</th>
+                                <th>Kitob Nomi</th>
+                                <th>Muallif</th>
+                                <th>Kategoriya</th>
+                                <th>Narxi</th>
+                                <th>Eski Narxi</th>
+                                <th>Amallar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="booksTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Section -->
+            <div id="ordersSection" style="display: none;">
+                <div class="header-title">
+                    <div>
+                        <h1>Kelib Tushgan Buyurtmalar</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Mijozlar buyurtmasi va ularning statuslarini o'zgartirish paneli</p>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Mijoz</th>
+                                <th>Telefon</th>
+                                <th>Manzil</th>
+                                <th>Kitoblar</th>
+                                <th>Jami Summa</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Real-Time Chat Section -->
+            <div id="chatSection" style="display: none;">
+                <div class="header-title">
+                    <div>
+                        <h1>Mijozlar bilan Real-Vaqt Chat</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Onlayn chat orqali mijozlar bilan muloqot qiling</p>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-sessions-list" id="chatSessionsList">
+                        <div style="padding:20px; text-align:center; color:var(--text-muted);">Sessiyalar yuklanmoqda...</div>
+                    </div>
+                    <div class="chat-main-area">
+                        <div class="chat-messages-box" id="adminChatMessages">
+                            <div style="text-align:center; color:var(--text-muted); margin-auto:auto;">Muloqotni boshlash uchun chap tomondan suhbatni tanlang.</div>
+                        </div>
+                        <form class="chat-input-row" onsubmit="sendAdminChatMessage(event)">
+                            <input type="text" id="adminChatInput" placeholder="Xabaringizni yozing..." required disabled>
+                            <button type="submit" class="btn-chat-send" id="adminSendBtn" disabled>
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section (Admin Reply & Like) -->
+            <div id="commentsSection" style="display: none;">
+                <div class="header-title">
+                    <div>
+                        <h1>Mijozlar Izohlari va Javob Berish</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Kitoblarga yozilgan izohlarni ko'rish, like bosish va Admin javobini qaytarish</p>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kitob</th>
+                                <th>Mijoz</th>
+                                <th>Izoh Matni</th>
+                                <th>Like-lar</th>
+                                <th>Javoblar</th>
+                                <th>Amal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commentsTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings (Map, Address, Phone, Email) Section -->
+            <div id="settingsSection" style="display: none;">
+                <div class="header-title">
+                    <div>
+                        <h1>Do'kon Sozlamalari (Manzil, Telefon, Email)</h1>
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">Saytdagi manzil, Google Maps link, Telefon va Email ma'lumotlarini o'zgartirish</p>
+                    </div>
+                </div>
+
+                <div class="table-card" style="padding: 30px; max-width: 650px; margin-bottom: 30px;">
+                    <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:15px; color:var(--primary);"><i class="fa-solid fa-store"></i> Do'kon Ma'lumotlari</h3>
+                    <form onsubmit="handleSettingsSubmit(event)">
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-phone"></i> Qo'llab-quvvatlash Telefon Raqami</label>
+                            <input type="text" id="settingPhone" placeholder="masalan: +998 90 123-45-67" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-envelope"></i> Email Manzili</label>
+                            <input type="email" id="settingEmail" placeholder="masalan: info@iqro.uz" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-location-dot"></i> Do'kon Manzili Matni</label>
+                            <input type="text" id="settingAddress" placeholder="masalan: Buxoro shahar, Mustaqillik ko'chasi 12" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-map-pin"></i> Google Maps Havolasi (Link)</label>
+                            <input type="url" id="settingMapsUrl" placeholder="masalan: https://maps.google.com/?q=..." required>
+                        </div>
+                        <button type="submit" class="btn-submit" style="margin-top: 15px;">
+                            <i class="fa-solid fa-floppy-disk"></i> Ma'lumotlarni Saqlash
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Admin Security Credentials Card -->
+                <div class="table-card" style="padding: 30px; max-width: 650px;">
+                    <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:15px; color:var(--danger);"><i class="fa-solid fa-user-shield"></i> Admin Login va Parolini O'zgartirish</h3>
+                    <form onsubmit="handleAdminCredentialsSubmit(event)">
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-user-lock"></i> Yangi Admin Logini (Username)</label>
+                            <input type="text" id="newAdminUsername" placeholder="yangi login..." required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-key"></i> Eski Parolingiz (Tasdiqlash uchun)</label>
+                            <input type="password" id="oldAdminPassword" placeholder="joriy eski parol..." required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fa-solid fa-lock"></i> Yangi Parol</label>
+                            <input type="password" id="newAdminPassword" placeholder="yangi maxfiy parol..." required>
+                        </div>
+                        <button type="submit" class="btn-submit" style="background:var(--danger); margin-top: 15px;">
+                            <i class="fa-solid fa-shield-halved"></i> Login va Parolni Yangilash
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Book Add/Edit Modal -->
+    <div class="modal" id="bookModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Yangi Kitob Qo'shish</h3>
+                <button class="close-btn" onclick="closeBookModal()">&times;</button>
+            </div>
+            <form onsubmit="handleBookSubmit(event)">
+                <input type="hidden" id="bookId">
+                <div class="form-group">
+                    <label>Kitob Nomi</label>
+                    <input type="text" id="bookTitle" required placeholder="masalan: O'tkan Kunlar">
+                </div>
+                <div class="form-group">
+                    <label>Muallif</label>
+                    <input type="text" id="bookAuthor" required placeholder="masalan: Abdulla Qodiriy">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sotuv Narxi (so'm)</label>
+                        <input type="number" id="bookPrice" required placeholder="45000">
+                    </div>
+                    <div class="form-group">
+                        <label>Eski Narxi (bo'sh qolishi mumkin)</label>
+                        <input type="number" id="bookOldPrice" placeholder="55000">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Kategoriya</label>
+                        <select id="bookCategory">
+                            <option value="badiiy">Badiiy adabiyot</option>
+                            <option value="diniy">Diniy va Ma'rifiy</option>
+                            <option value="biznes">Biznes va Rivojlanish</option>
+                            <option value="psixologiya">Psixologiya</option>
+                            <option value="bolalar">Bolalar adabiyoti</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Turi (Tab)</label>
+                        <select id="bookType">
+                            <option value="new">Yangi kelgan</option>
+                            <option value="bestseller">Best-seller</option>
+                            <option value="discount">Chegirmali</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Image Upload Section -->
+                <div class="form-group">
+                    <label><i class="fa-solid fa-cloud-arrow-up"></i> Kitob Rasmini Yuklash (JPG, PNG, WEBP)</label>
+                    <input type="file" id="bookImageFile" accept="image/*" onchange="uploadImageFile(this)">
+                    <input type="hidden" id="bookImage">
+                    <div class="image-preview-container">
+                        <img id="imagePreview" class="preview-img" alt="Oldindan ko'rish">
+                        <span id="uploadStatusText" style="font-size:0.85rem; color:var(--text-muted);"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">Saqlash va Yangilash</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allBooks = [];
+        let socket = null;
+        let activeSessionId = null;
+
+        function initSocket() {
+            if (!socket) {
+                socket = io();
+                socket.emit('join_admin');
+
+                socket.on('receive_message', (msg) => {
+                    fetchAdminChatSessions();
+                    
+                    // Show notification if message is from a user
+                    if (msg.sender === 'user') {
+                        showAdminToast(`💬 ${msg.user_name}`, msg.message);
+                    }
+
+                    if (activeSessionId && msg.session_id === activeSessionId) {
+                        appendAdminChatMessage(msg);
+                    }
+                });
+            }
+        }
+
+        function showAdminToast(title, body) {
+            const toast = document.getElementById('adminToastAlert');
+            document.getElementById('toastTitle').textContent = title;
+            document.getElementById('toastBody').textContent = body;
+
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/admin/check-auth');
+                const data = await res.json();
+                if (data.logged_in) {
+                    document.getElementById('adminLoginScreen').style.display = 'none';
+                    document.getElementById('adminDashboard').style.display = 'flex';
+                    
+                    const savedTab = localStorage.getItem('iqro_admin_active_tab') || 'books';
+                    switchTab(savedTab);
+                    initSocket();
+                    fetchAdminChatSessions();
+                } else {
+                    document.getElementById('adminLoginScreen').style.display = 'flex';
+                    document.getElementById('adminDashboard').style.display = 'none';
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('adminUsername').value;
+            const password = document.getElementById('adminPassword').value;
+
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    checkAuth();
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) { alert("Login kirishda xatolik!"); }
+        }
+
+        async function handleAdminLogout() {
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+                localStorage.removeItem('iqro_admin_active_tab');
+                checkAuth();
+            } catch (err) { console.error(err); }
+        }
+
+        async function fetchAdminBooks() {
+            try {
+                const res = await fetch('/api/books');
+                const data = await res.json();
+                if (data.success) {
+                    allBooks = data.books;
+                    renderBooksTable(data.books);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function renderBooksTable(books) {
+            const tbody = document.getElementById('booksTableBody');
+            let html = '';
+            books.forEach(b => {
+                const oldPrice = b.old_price ? `${b.old_price.toLocaleString()} so'm` : '-';
+                html += `
+                    <tr>
+                        <td><img src="${b.image}" class="book-thumb" alt="${b.title}"></td>
+                        <td><strong>${b.title}</strong></td>
+                        <td>${b.author}</td>
+                        <td><span class="badge-cat">${b.category}</span></td>
+                        <td><span class="price-text">${b.price.toLocaleString()} so'm</span></td>
+                        <td style="color: var(--text-muted);">${oldPrice}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn-action-icon btn-edit" title="Tahrirlash" onclick="editBook(${b.id})">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button class="btn-action-icon btn-delete" title="O'chirish" onclick="deleteBook(${b.id})">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function fetchAdminChatSessions() {
+            try {
+                const res = await fetch('/api/admin/chat-sessions');
+                const data = await res.json();
+                if (data.success) {
+                    updateUnreadBadges(data.total_unread);
+                    renderChatSessions(data.sessions);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function updateUnreadBadges(totalUnread) {
+            const menuBadge = document.getElementById('menuUnreadBadge');
+            if (totalUnread > 0) {
+                menuBadge.textContent = totalUnread;
+                menuBadge.style.display = 'inline-block';
+            } else {
+                menuBadge.style.display = 'none';
+            }
+        }
+
+        function renderChatSessions(sessions) {
+            const listDiv = document.getElementById('chatSessionsList');
+            if (sessions.length === 0) {
+                listDiv.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Suhbatlar yo\'q</div>';
+                return;
+            }
+            let html = '';
+            sessions.forEach(s => {
+                const activeClass = s.chat_session_id === activeSessionId ? 'active' : '';
+                const unreadTag = s.unread_count > 0 ? `<span class="session-unread-badge">${s.unread_count}</span>` : '';
+
+                html += `
+                    <div class="session-item ${activeClass}" onclick="openAdminChatSession('${s.chat_session_id}', '${s.user_name}')">
+                        ${unreadTag}
+                        <div class="session-user">${s.user_name}</div>
+                        <div class="session-preview">${s.last_message}</div>
+                    </div>
+                `;
+            });
+            listDiv.innerHTML = html;
+        }
+
+        async function openAdminChatSession(sessionId, userName) {
+            activeSessionId = sessionId;
+            document.getElementById('adminChatInput').disabled = false;
+            document.getElementById('adminSendBtn').disabled = false;
+
+            try {
+                const res = await fetch(`/api/chat/messages/${sessionId}`);
+                const data = await res.json();
+                if (data.success) {
+                    const msgBox = document.getElementById('adminChatMessages');
+                    msgBox.innerHTML = '';
+                    data.messages.forEach(msg => appendAdminChatMessage(msg));
+                    fetchAdminChatSessions(); // Update unread badges
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function appendAdminChatMessage(msg) {
+            const msgBox = document.getElementById('adminChatMessages');
+            const isSelf = msg.sender === 'admin';
+            const bubbleClass = isSelf ? 'bubble-admin' : 'bubble-user';
+            
+            const div = document.createElement('div');
+            div.className = `chat-bubble ${bubbleClass}`;
+            div.innerHTML = `
+                <div><strong>${msg.user_name}:</strong> ${msg.message}</div>
+                <div class="chat-time">${msg.timestamp}</div>
+            `;
+            msgBox.appendChild(div);
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+
+        function sendAdminChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('adminChatInput');
+            const text = input.value.trim();
+            if (!text || !activeSessionId) return;
+
+            socket.emit('send_message', {
+                session_id: activeSessionId,
+                sender: 'admin',
+                user_name: 'Admin (IQRO)',
+                message: text
+            });
+
+            input.value = '';
+        }
+
+        async function fetchSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.settings) {
+                    document.getElementById('settingAddress').value = data.settings.store_address || '';
+                    document.getElementById('settingMapsUrl').value = data.settings.maps_url || '';
+                    document.getElementById('settingPhone').value = data.settings.phone_number || '';
+                    document.getElementById('settingEmail').value = data.settings.email_address || '';
+                    if (data.settings.admin_username) {
+                        document.getElementById('newAdminUsername').value = data.settings.admin_username;
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function handleSettingsSubmit(e) {
+            e.preventDefault();
+            const store_address = document.getElementById('settingAddress').value;
+            const maps_url = document.getElementById('settingMapsUrl').value;
+            const phone_number = document.getElementById('settingPhone').value;
+            const email_address = document.getElementById('settingEmail').value;
+
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ store_address, maps_url, phone_number, email_address })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                }
+            } catch (err) { alert("Sozlamalarni saqlashda xatolik!"); }
+        }
+
+        async function uploadImageFile(fileInput) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const statusText = document.getElementById('uploadStatusText');
+            const preview = document.getElementById('imagePreview');
+            statusText.textContent = "Yuklanmoqda...";
+            statusText.style.color = "var(--primary)";
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('bookImage').value = data.image_url;
+                    preview.src = data.image_url;
+                    preview.style.display = 'block';
+                    statusText.textContent = "✅ Rasm muvaffaqiyatli yuklandi!";
+                    statusText.style.color = "var(--success)";
+                } else { alert(data.message); }
+            } catch (err) { alert("Rasm yuklashda xatolik!"); }
+        }
+
+        async function fetchAdminOrders() {
+            try {
+                const res = await fetch('/api/admin/orders');
+                const data = await res.json();
+                if (data.success) renderOrdersTable(data.orders);
+            } catch (err) { console.error(err); }
+        }
+
+        function renderOrdersTable(orders) {
+            const tbody = document.getElementById('ordersTableBody');
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#64748b;">Hozircha yangi buyurtmalar yo\'q</td></tr>';
+                return;
+            }
+            let html = '';
+            orders.forEach(o => {
+                const itemsSummary = o.items.map(i => `${i.title} (${i.quantity}x)`).join(', ');
+                let selectClass = 'qabul';
+                if (o.status === "Yig'ilmoqda") selectClass = 'yigilmoqda';
+                else if (o.status === "Yuborildi") selectClass = 'yuborildi';
+                else if (o.status === "Yetkazib berildi") selectClass = 'yetkazildi';
+
+                html += `
+                    <tr>
+                        <td><strong>#${o.order_id}</strong></td>
+                        <td>${o.customer_name}</td>
+                        <td>${o.phone}</td>
+                        <td style="font-size: 0.85rem;">${o.address}</td>
+                        <td style="font-size: 0.85rem; max-width: 200px;">${itemsSummary}</td>
+                        <td><span class="price-text">${o.total_price.toLocaleString()} so'm</span></td>
+                        <td>
+                            <select class="status-select ${selectClass}" onchange="changeOrderStatus(${o.order_id}, this.value, this)">
+                                <option value="Qabul qilindi" ${o.status === 'Qabul qilindi' ? 'selected' : ''}>Qabul qilindi</option>
+                                <option value="Yig'ilmoqda" ${o.status === "Yig'ilmoqda" ? 'selected' : ''}>Yig'ilmoqda</option>
+                                <option value="Yuborildi" ${o.status === 'Yuborildi' ? 'selected' : ''}>Yuborildi</option>
+                                <option value="Yetkazib berildi" ${o.status === 'Yetkazib berildi' ? 'selected' : ''}>Yetkazib berildi</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        async function changeOrderStatus(orderId, newStatus, selectElement) {
+            try {
+                const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    selectElement.className = 'status-select';
+                    if (newStatus === "Qabul qilindi") selectElement.classList.add('qabul');
+                    else if (newStatus === "Yig'ilmoqda") selectElement.classList.add('yigilmoqda');
+                    else if (newStatus === "Yuborildi") selectElement.classList.add('yuborildi');
+                    else if (newStatus === "Yetkazib berildi") selectElement.classList.add('yetkazildi');
+                }
+            } catch (err) { alert("Statusni yangilashda xatolik!"); }
+        }
+
+        function openBookModal() {
+            document.getElementById('bookId').value = '';
+            document.getElementById('bookTitle').value = '';
+            document.getElementById('bookAuthor').value = '';
+            document.getElementById('bookPrice').value = '';
+            document.getElementById('bookOldPrice').value = '';
+            document.getElementById('bookImage').value = '';
+            document.getElementById('bookImageFile').value = '';
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('uploadStatusText').textContent = '';
+            document.getElementById('modalTitle').textContent = "Yangi Kitob Qo'shish";
+            document.getElementById('bookModal').classList.add('active');
+        }
+
+        function editBook(id) {
+            const book = allBooks.find(b => b.id === id);
+            if (!book) return;
+
+            document.getElementById('bookId').value = book.id;
+            document.getElementById('bookTitle').value = book.title;
+            document.getElementById('bookAuthor').value = book.author;
+            document.getElementById('bookPrice').value = book.price;
+            document.getElementById('bookOldPrice').value = book.old_price || '';
+            document.getElementById('bookCategory').value = book.category;
+            document.getElementById('bookType').value = book.type;
+            document.getElementById('bookImage').value = book.image;
+
+            const preview = document.getElementById('imagePreview');
+            preview.src = book.image;
+            preview.style.display = 'block';
+
+            document.getElementById('modalTitle').textContent = `Kitobni Tahrirlash: ${book.title}`;
+            document.getElementById('bookModal').classList.add('active');
+        }
+
+        function closeBookModal() {
+            document.getElementById('bookModal').classList.remove('active');
+        }
+
+        async function handleBookSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('bookId').value;
+            const payload = {
+                title: document.getElementById('bookTitle').value,
+                author: document.getElementById('bookAuthor').value,
+                price: document.getElementById('bookPrice').value,
+                old_price: document.getElementById('bookOldPrice').value,
+                category: document.getElementById('bookCategory').value,
+                type: document.getElementById('bookType').value,
+                image: document.getElementById('bookImage').value
+            };
+
+            if (!payload.image) { alert("Kitob rasmini yuklang!"); return; }
+
+            const url = id ? `/api/admin/books/${id}` : '/api/admin/books';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    closeBookModal();
+                    fetchAdminBooks();
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        async function deleteBook(id) {
+            if (!confirm("Haqiqatdan ham o'chirmoqchimisiz?")) return;
+            try {
+                const res = await fetch(`/api/admin/books/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) fetchAdminBooks();
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        async function fetchAdminComments() {
+            try {
+                const res = await fetch('/api/books');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.getElementById('commentsTableBody');
+                    let html = '';
+                    data.books.forEach(b => {
+                        if (b.comments && b.comments.length > 0) {
+                            b.comments.forEach(c => {
+                                const replies = c.replies || [];
+                                let repliesText = replies.map(r => `<div><strong>${r.user}:</strong> ${r.text}</div>`).join('');
+                                if (!repliesText) repliesText = '<span style="color:var(--text-muted);">-</span>';
+
+                                html += `
+                                    <tr>
+                                        <td>#${c.id}</td>
+                                        <td><strong>${b.title}</strong></td>
+                                        <td>${c.user || 'Anonim'}</td>
+                                        <td>${c.text}</td>
+                                        <td><span style="color:#ef4444; font-weight:700;"><i class="fa-solid fa-heart"></i> ${c.likes || 0}</span></td>
+                                        <td style="font-size:0.85rem;">${repliesText}</td>
+                                        <td>
+                                            <button class="btn-action-icon btn-edit" title="Like" onclick="adminLikeComment(${c.id})"><i class="fa-solid fa-thumbs-up"></i></button>
+                                            <button class="btn-action-icon btn-edit" title="Javob qaytarish" onclick="adminReplyComment(${c.id})"><i class="fa-solid fa-reply"></i></button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+                    });
+
+                    if (!html) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Hozircha hech qanday izohlar yozilmagan.</td></tr>';
+                    } else {
+                        tbody.innerHTML = html;
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function adminLikeComment(commentId) {
+            try {
+                const res = await fetch(`/api/comments/${commentId}/like`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) fetchAdminComments();
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        async function adminReplyComment(commentId) {
+            const replyText = prompt("Admin javobini kiriting:");
+            if (!replyText || !replyText.trim()) return;
+
+            try {
+                const res = await fetch(`/api/comments/${commentId}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: 'Admin 🛡️', text: replyText.trim() })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Admin javobi saqlandi!");
+                    fetchAdminComments();
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        async function handleAdminCredentialsSubmit(e) {
+            e.preventDefault();
+            const new_username = document.getElementById('newAdminUsername').value.trim();
+            const old_password = document.getElementById('oldAdminPassword').value.trim();
+            const new_password = document.getElementById('newAdminPassword').value.trim();
+
+            try {
+                const res = await fetch('/api/admin/change-credentials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_password, new_username, new_password })
+                });
+
+                const data = await res.json();
+                alert(data.message);
+                if (data.success) {
+                    document.getElementById('oldAdminPassword').value = '';
+                    document.getElementById('newAdminPassword').value = '';
+                }
+            } catch (err) { alert("Server bilan bog'lanishda xatolik!"); }
+        }
+
+        function switchTab(tab) {
+            localStorage.setItem('iqro_admin_active_tab', tab);
+
+            document.getElementById('menuBooks').classList.remove('active');
+            document.getElementById('menuOrders').classList.remove('active');
+            document.getElementById('menuChat').classList.remove('active');
+            if (document.getElementById('menuComments')) document.getElementById('menuComments').classList.remove('active');
+            document.getElementById('menuSettings').classList.remove('active');
+
+            document.getElementById('booksSection').style.display = 'none';
+            document.getElementById('ordersSection').style.display = 'none';
+            document.getElementById('chatSection').style.display = 'none';
+            if (document.getElementById('commentsSection')) document.getElementById('commentsSection').style.display = 'none';
+            document.getElementById('settingsSection').style.display = 'none';
+            
+            if (tab === 'books') {
+                document.getElementById('booksSection').style.display = 'block';
+                document.getElementById('menuBooks').classList.add('active');
+                fetchAdminBooks();
+            } else if (tab === 'orders') {
+                document.getElementById('ordersSection').style.display = 'block';
+                document.getElementById('menuOrders').classList.add('active');
+                fetchAdminOrders();
+            } else if (tab === 'chat') {
+                document.getElementById('chatSection').style.display = 'block';
+                document.getElementById('menuChat').classList.add('active');
+                fetchAdminChatSessions();
+            } else if (tab === 'comments') {
+                document.getElementById('commentsSection').style.display = 'block';
+                document.getElementById('menuComments').classList.add('active');
+                fetchAdminComments();
+            } else if (tab === 'settings') {
+                document.getElementById('settingsSection').style.display = 'block';
+                document.getElementById('menuSettings').classList.add('active');
+                fetchSettings();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>

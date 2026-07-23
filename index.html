@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IQRO.UZ - Zamonaviy va Ma'rifiy Onlayn Kitob Do'koni</title>
+    <meta name="description" content="IQRO.UZ - Ziyo taratuvchi eng sara badiiy, diniy, psixologiya, va biznes kitoblari do'koni. Tezkor yetkazib berish xizmati.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Socket.io CDN -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #0f52ba;
+            --primary-hover: #0a3a85;
+            --accent: #d4af37;
+            --bg-light: #f8f9fa;
+            --text-color: #212529;
+            --text-muted: #6c757d;
+            --border-color: #e9ecef;
+            --shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            --radius: 8px;
+            --transition: all 0.2s ease-in-out;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background-color: #1a252f;
+            color: #ffffff;
+            font-size: 0.85rem;
+            padding: 8px 0;
+        }
+
+        .top-bar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Header */
+        .header {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 0;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: 1.5px;
+        }
+
+        .logo span {
+            color: var(--accent);
+        }
+
+        .search-bar {
+            flex: 1;
+            max-width: 500px;
+            display: flex;
+            position: relative;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 11px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            outline: none;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--primary);
+        }
+
+        .search-bar button {
+            position: absolute;
+            right: 4px;
+            top: 4px;
+            bottom: 4px;
+            padding: 0 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .search-bar button:hover {
+            background: var(--primary-hover);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-action {
+            padding: 9px 18px;
+            border-radius: var(--radius);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background: var(--bg-light);
+        }
+
+        .btn-cart-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .btn-cart-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Categories */
+        .nav-categories {
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-categories ul {
+            display: flex;
+            list-style: none;
+            gap: 25px;
+            padding: 12px 0;
+            overflow-x: auto;
+        }
+
+        .nav-categories a {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #495057;
+            white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        .nav-categories a:hover, .nav-categories a.active {
+            color: var(--primary);
+        }
+
+        /* Hero */
+        .hero {
+            margin: 25px 0;
+        }
+
+        .hero-banner {
+            background: linear-gradient(135deg, #0f52ba, #1a252f);
+            color: white;
+            border-radius: 12px;
+            padding: 45px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            font-size: 2.3rem;
+            margin-bottom: 12px;
+        }
+
+        .hero-text p {
+            font-size: 1.1rem;
+            margin-bottom: 22px;
+            opacity: 0.9;
+        }
+
+        .btn-hero {
+            display: inline-block;
+            background: var(--accent);
+            color: #1a252f;
+            padding: 12px 26px;
+            border-radius: var(--radius);
+            font-weight: 700;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .btn-hero:hover {
+            opacity: 0.95;
+            transform: translateY(-2px);
+        }
+
+        /* Section title */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 35px 0 20px 0;
+        }
+
+        .section-title h2 {
+            font-size: 1.6rem;
+            color: #1a252f;
+        }
+
+        .section-title a {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* BOOK CARD GRID */
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 22px;
+            margin-bottom: 40px;
+        }
+
+        .book-card {
+            background: white;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        .book-cover-wrap {
+            width: 100%;
+            height: 240px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            position: relative;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .book-cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .quick-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .btn-quick {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            color: var(--text-color);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .btn-quick.active-fav {
+            color: #ef4444;
+            background: #ffe4e6;
+        }
+
+        .btn-quick:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .comment-badge-count {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--accent);
+            color: #1a252f;
+            font-size: 0.65rem;
+            font-weight: 800;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .book-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #1a252f;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .book-author {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .book-price {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+
+        .btn-buy {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background: var(--bg-light);
+            color: var(--text-color);
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .book-card:hover .btn-buy {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Floating Live Chat Widget Button */
+        .chat-widget-btn {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, #1976d2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 8px 25px rgba(15, 82, 186, 0.4);
+            cursor: pointer;
+            z-index: 1800;
+            transition: transform 0.3s ease;
+        }
+
+        .chat-widget-btn:hover {
+            transform: scale(1.08);
+        }
+
+        /* Live Chat Drawer Box */
+        .chat-widget-box {
+            position: fixed;
+            bottom: 95px;
+            right: 25px;
+            width: 350px;
+            height: 460px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            z-index: 1850;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .chat-widget-box.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .chat-widget-header {
+            background: var(--primary);
+            color: white;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .chat-widget-body {
+            flex: 1;
+            padding: 14px;
+            overflow-y: auto;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .user-chat-bubble {
+            max-width: 80%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .user-bubble-me {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-top-right-radius: 2px;
+        }
+
+        .user-bubble-admin {
+            align-self: flex-start;
+            background: white;
+            color: #0f172a;
+            border: 1px solid var(--border-color);
+            border-top-left-radius: 2px;
+        }
+
+        .user-chat-time {
+            font-size: 0.65rem;
+            opacity: 0.75;
+            margin-top: 3px;
+            text-align: right;
+        }
+
+        .chat-widget-footer {
+            padding: 10px 14px;
+            border-top: 1px solid var(--border-color);
+            background: white;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-widget-footer input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            outline: none;
+            font-size: 0.88rem;
+        }
+
+        .chat-widget-footer button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Footer */
+        .footer {
+            background: #111827;
+            color: #9ca3af;
+            padding: 45px 0 20px 0;
+            margin-top: 60px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-bottom: 35px;
+        }
+
+        .footer-col h4 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .footer-col ul { list-style: none; }
+        .footer-col ul li { margin-bottom: 8px; }
+        .footer-col a:hover { color: white; }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #1f2937;
+            font-size: 0.85rem;
+        }
+
+        /* Modals & Cart Drawer */
+        .cart-modal {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+            z-index: 2000;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cart-modal.open { right: 0; }
+
+        .cart-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-light);
+        }
+
+        .close-cart {
+            background: none;
+            border: none;
+            font-size: 1.3rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .cart-body { flex: 1; padding: 20px; overflow-y: auto; }
+        .cart-empty { text-align: center; padding: 40px 0; color: var(--text-muted); }
+        .cart-empty i { font-size: 3rem; margin-bottom: 15px; opacity: 0.4; }
+        .cart-footer { padding: 20px; border-top: 1px solid var(--border-color); background: var(--bg-light); }
+        .cart-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.1rem; margin-bottom: 16px; }
+
+        .btn-checkout {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .modal-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 90%;
+            max-width: 560px;
+            background: white;
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            z-index: 2500;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-popup.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .modal-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-popup-header h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .quick-view-body {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .quick-view-img {
+            width: 100%;
+            height: 240px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .overlay.active { opacity: 1; visibility: visible; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1a252f;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 3000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+            border-left: 4px solid var(--accent);
+        }
+
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; }
+        .status-qabul { background: #fef3c7; color: #d97706; }
+        .status-yigilmoqda { background: #e0f2fe; color: #0284c7; }
+        .status-yuborildi { background: #fae8ff; color: #c026d3; }
+        .status-yetkazildi { background: #dcfce7; color: #16a34a; }
+    </style>
+</head>
+<body>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay" onclick="closeAllModals()"></div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+        <span id="toast-msg">Kitob savatga qo'shildi!</span>
+    </div>
+
+    <!-- Floating Live Chat Widget Button -->
+    <div class="chat-widget-btn" onclick="toggleChatWidget()" title="Admin bilan online suhbat">
+        <i class="fa-solid fa-headset"></i>
+    </div>
+
+    <!-- Live Chat Drawer Box -->
+    <div class="chat-widget-box" id="chatWidgetBox">
+        <div class="chat-widget-header">
+            <span>💬 Admin bilan online chat</span>
+            <button onclick="toggleChatWidget()" style="background:none; border:none; color:white; font-size:1.2rem; cursor:pointer;">&times;</button>
+        </div>
+        <div class="chat-widget-body" id="userChatMessages">
+            <div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">
+                Assalomu alaykum! Savollaringiz bo'lsa, shu yerga yozishingiz mumkin.
+            </div>
+        </div>
+        <form class="chat-widget-footer" onsubmit="sendUserChatMessage(event)">
+            <input type="text" id="userChatInput" placeholder="Xabar yozing..." required>
+            <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <!-- Quick View & Comments Modal -->
+    <div class="modal-popup" id="quickViewModal">
+        <div class="modal-popup-header">
+            <h3>📖 Kitob va Izohlar</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="quick-view-body">
+            <img src="" id="qvImage" class="quick-view-img" alt="Kitob rasmi">
+            <div>
+                <h2 id="qvTitle" style="font-size:1.3rem; margin-bottom:4px;">Kitob Nomi</h2>
+                <div id="qvAuthor" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:10px;">Muallif</div>
+                <div id="qvPrice" style="font-size:1.3rem; font-weight:800; color:var(--primary); margin-bottom:14px;">0 so'm</div>
+                <button class="btn-buy" id="qvBuyBtn" style="background:var(--primary); color:white; padding:10px;">
+                    🛒 Savatga Qo'shish
+                </button>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div style="margin-top:20px; border-top:1px solid var(--border-color); padding-top:15px;">
+            <h4 style="margin-bottom:12px; display:flex; align-items:center; gap:8px; font-size:1rem;">
+                <i class="fa-solid fa-comments" style="color:var(--primary);"></i> Kitobxonlar izohlari
+            </h4>
+            <div id="qvCommentsList" style="max-height: 180px; overflow-y: auto; padding-right: 5px;">
+                <p style="font-size:0.85rem; color:var(--text-muted);">Hozircha izohlar yo'q.</p>
+            </div>
+
+            <!-- Comment Input Form -->
+            <form onsubmit="handleCommentSubmit(event)" style="margin-top:14px; background: #f8f9fa; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <input type="hidden" id="qvBookId">
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Ismingiz (ixtiyoriy, bo'sh qolsa 'Anonim'):</label>
+                    <input type="text" id="commentUserName" placeholder="Ismingiz (masalan: Javohir)">
+                </div>
+
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:0.8rem; color:var(--text-muted);">Fikringiz (Izohingiz):</label>
+                    <textarea id="commentText" rows="2" placeholder="Ushbu kitob haqidagi samimiy fikringizni yozing..." required></textarea>
+                </div>
+
+                <button type="submit" class="btn-action btn-cart-primary" style="float:right; padding:8px 18px; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-paper-plane"></i> Izoh Yuborish
+                </button>
+                <div style="clear:both;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Favorites Modal -->
+    <div class="modal-popup" id="favoritesModal">
+        <div class="modal-popup-header">
+            <h3>❤️ Saralangan kitoblarim</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div id="favoritesList">
+            <p style="text-align:center; color: var(--text-muted);">Saralanganlar yo'q.</p>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-popup" id="loginModal">
+        <div class="modal-popup-header">
+            <h3>🔑 Tizimga Kirish</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <form onsubmit="handleLoginSubmit(event)">
+            <div class="form-group">
+                <label>Email yoki Telefon</label>
+                <input type="email" id="loginEmail" placeholder="user@iqro.uz" required>
+            </div>
+            <div class="form-group">
+                <label>Parol</label>
+                <input type="password" id="loginPassword" placeholder="******" required>
+            </div>
+            <button type="submit" class="btn-action btn-cart-primary" style="width:100%;">Kirish</button>
+        </form>
+    </div>
+
+    <!-- Order Track Modal -->
+    <div class="modal-popup" id="trackOrdersModal">
+        <div class="modal-popup-header">
+            <h3>🚚 Buyurtmalarim holati</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div id="trackOrdersList">
+            <p style="text-align:center; color: var(--text-muted);">Yuklanmoqda...</p>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div class="modal-popup" id="checkoutModal">
+        <div class="modal-popup-header">
+            <h3>📦 Buyurtmani Rasmiylashtirish</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <form onsubmit="handleCheckoutSubmit(event)">
+            <div class="form-group">
+                <label>Ism va Familiyangiz</label>
+                <input type="text" id="orderName" placeholder="Ali Valiyev" required>
+            </div>
+            <div class="form-group">
+                <label>Telefon Raqamingiz</label>
+                <input type="tel" id="orderPhone" placeholder="+998 94 959 36 33" required>
+            </div>
+            <div class="form-group">
+                <label>Yetkazib berish manzili</label>
+                <textarea id="orderAddress" rows="2" placeholder="Shahar, tuman, ko'cha..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>To'lov usuli</label>
+                <select id="orderPayment">
+                    <option value="Naqd">Naqd pul</option>
+                    <option value="Click">Click</option>
+                    <option value="Payme">Payme</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-checkout">Tasdiqlash</button>
+        </form>
+    </div>
+
+    <!-- Cart Drawer -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-header">
+            <h3>🛒 Xarid Savati</h3>
+            <button class="close-cart" onclick="closeAllModals()">&times;</button>
+        </div>
+        <div class="cart-body" id="cartBody">
+            <div class="cart-empty">
+                <i class="fa-solid fa-basket-shopping"></i>
+                <p>Savatingiz hozircha bo'sh</p>
+            </div>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total-row">
+                <span>Jami:</span>
+                <span id="cartTotalSum">0 so'm</span>
+            </div>
+            <button class="btn-checkout" onclick="openCheckoutModal()">
+                Rasmiylashtirish &rarr;
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="container">
+            <span>📖 IQRO - Ziyo taratuvchi kitoblar do'koni</span>
+            <span>📞 Qo'llab-quvvatlash: <a href="tel:+998901234567" id="topBarPhone" style="color:inherit; text-decoration:underline;">+998 90 123-45-67</a></span>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="header">
+        <div class="container header-content">
+            <a href="#" class="logo">IQRO<span>.UZ</span></a>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Kitob, muallif yoki janr bo'yicha qidiring..." oninput="handleSearch()">
+                <button type="button" onclick="handleSearch()">Qidirish</button>
+            </div>
+
+            <div class="header-actions" id="headerActions">
+                <!-- User buttons updated dynamically -->
+                <button class="btn-action" style="color: #ef4444;" onclick="openFavoritesModal()">❤️ Saralanganlar (<span id="favCount">0</span>)</button>
+                <button class="btn-action" onclick="openTrackModal()">🚚 Buyurtmalarim</button>
+                <button class="btn-action" id="userAccountBtn" onclick="openLoginModal()"><span id="userAccountText">Kirish</span></button>
+                <button class="btn-action btn-cart-primary" onclick="openCart()">🛒 Savat (<span id="cartCount">0</span>)</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Categories Nav -->
+    <nav class="nav-categories">
+        <div class="container">
+            <ul>
+                <li><a href="#" class="active" onclick="filterCategory('all', this)">Barchasi</a></li>
+                <li><a href="#" onclick="filterCategory('badiiy', this)">Badiiy adabiyot</a></li>
+                <li><a href="#" onclick="filterCategory('diniy', this)">Diniy va Ma'rifiy</a></li>
+                <li><a href="#" onclick="filterCategory('biznes', this)">Biznes va Muvaffaqiyat</a></li>
+                <li><a href="#" onclick="filterCategory('psixologiya', this)">Psixologiya</a></li>
+                <li><a href="#" onclick="filterCategory('bolalar', this)">Bolalar adabiyoti</a></li>
+                <li><a href="#" onclick="filterCategory('ilmiy', this)">Ilmiy va Darsliklar</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Hero Banner -->
+        <section class="hero">
+            <div class="hero-banner">
+                <div class="hero-text">
+                    <h1>IQRO bilan ilmingizni ziynatlang!</h1>
+                    <p>Barcha eng sara va xaridorgir kitoblarga maxsus chegirmalar mavjud.</p>
+                    <a href="#catalog" class="btn-hero">Katalogni ko'rish</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Books Section -->
+        <section id="catalog">
+            <div class="section-title">
+                <h2>Eng ko'p o'qilayotgan kitoblar</h2>
+                <a href="#">Barchasi &rarr;</a>
+            </div>
+
+            <div class="book-grid" id="bookGrid">
+                <!-- Loaded dynamically -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>IQRO haqida</h4>
+                    <p>IQRO - Sizga ilmiy va ma'rifiy manbalarni yetkazib beruvchi ishonchli onlayn kitob do'koni.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Bo'limlar</h4>
+                    <ul>
+                        <li><a href="#">Badiiy adabiyot</a></li>
+                        <li><a href="#">Diniy adabiyotlar</a></li>
+                        <li><a href="#">Biznes kitoblar</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col">
+                    <h4>Bog'lanish</h4>
+                    <p id="footerAddressText">Buxoro shahar, Mustaqillik ko'chasi 12</p>
+                    <p style="margin-top:4px;"><a href="https://maps.google.com/?q=Bukhara" id="footerMapsLink" target="_blank" style="color:var(--accent); font-weight:700; font-size:0.85rem;"><i class="fa-solid fa-map-location-dot"></i> Google Xaritasida Ko'rish &rarr;</a></p>
+                    <p style="margin-top:6px;">Email: <a href="mailto:info@iqro.uz" id="footerEmail" style="color:inherit; text-decoration:underline;">info@iqro.uz</a></p>
+                    <p>Tel: <a href="tel:+998901234567" id="footerPhone" style="color:inherit; text-decoration:underline;">+998 90 123-45-67</a></p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                &copy; 2026 IQRO.UZ - Barcha huquqlar himoyalangan.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive JS -->
+    <script>
+        let cart = [];
+        let allBooksList = [];
+        let userFavorites = [];
+        let currentUser = null;
+        let lastUserPhone = '';
+        let currentCategory = 'all';
+        let searchQuery = '';
+        let trackingInterval = null;
+
+        // REAL-TIME CHAT SOCKET & SESSION
+        let userSocket = null;
+        let chatSessionId = localStorage.getItem('iqro_chat_session_id');
+
+        if (!chatSessionId) {
+            chatSessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('iqro_chat_session_id', chatSessionId);
+        }
+
+        // PERSISTENT USER SESSION CHECK (localStorage)
+        function checkSavedUserSession() {
+            const savedUserJson = localStorage.getItem('iqro_logged_user');
+            if (savedUserJson) {
+                try {
+                    currentUser = JSON.parse(savedUserJson);
+                    userFavorites = currentUser.favorites || [];
+                    updateUserUI();
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function updateUserUI() {
+            const btnText = document.getElementById('userAccountText');
+            const btn = document.getElementById('userAccountBtn');
+            const favCount = document.getElementById('favCount');
+
+            if (currentUser) {
+                btnText.textContent = currentUser.name;
+                btn.title = "Profil / Chiqish";
+                btn.onclick = showUserMenu;
+                favCount.textContent = userFavorites.length;
+            } else {
+                btnText.textContent = "Kirish";
+                btn.title = "Tizimga kirish";
+                btn.onclick = openLoginModal;
+                favCount.textContent = "0";
+            }
+        }
+
+        function showUserMenu() {
+            if (confirm(`${currentUser.name}, profildan chiqmoqchimisiz?`)) {
+                logoutUser();
+            }
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            userFavorites = [];
+            localStorage.removeItem('iqro_logged_user');
+            updateUserUI();
+            fetchBooks();
+            showToast("Profildan chiqdingiz!");
+        }
+
+        function initUserSocket() {
+            if (!userSocket) {
+                userSocket = io();
+                userSocket.emit('join_chat', { session_id: chatSessionId });
+
+                userSocket.on('receive_message', (msg) => {
+                    if (msg.session_id === chatSessionId) {
+                        appendUserChatMessage(msg);
+                    }
+                });
+            }
+        }
+
+        async function fetchSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.settings) {
+                    if (data.settings.store_address) {
+                        document.getElementById('footerAddressText').textContent = data.settings.store_address;
+                    }
+                    if (data.settings.maps_url) {
+                        document.getElementById('footerMapsLink').href = data.settings.maps_url;
+                    }
+                    if (data.settings.phone_number) {
+                        const cleanPhone = data.settings.phone_number.replace(/[^0-9+]/g, '');
+                        const topPhone = document.getElementById('topBarPhone');
+                        const footPhone = document.getElementById('footerPhone');
+                        if (topPhone) {
+                            topPhone.textContent = data.settings.phone_number;
+                            topPhone.href = `tel:${cleanPhone}`;
+                        }
+                        if (footPhone) {
+                            footPhone.textContent = data.settings.phone_number;
+                            footPhone.href = `tel:${cleanPhone}`;
+                        }
+                    }
+                    if (data.settings.email_address) {
+                        const footEmail = document.getElementById('footerEmail');
+                        if (footEmail) {
+                            footEmail.textContent = data.settings.email_address;
+                            footEmail.href = `mailto:${data.settings.email_address}`;
+                        }
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function toggleChatWidget() {
+            const box = document.getElementById('chatWidgetBox');
+            box.classList.toggle('active');
+            if (box.classList.contains('active')) {
+                initUserSocket();
+                loadUserChatHistory();
+            }
+        }
+
+        async function loadUserChatHistory() {
+            try {
+                const res = await fetch(`/api/chat/messages/${chatSessionId}`);
+                const data = await res.json();
+                if (data.success) {
+                    const msgBox = document.getElementById('userChatMessages');
+                    msgBox.innerHTML = '';
+                    if (data.messages.length === 0) {
+                        msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, yozing.</div>';
+                    } else {
+                        data.messages.forEach(msg => appendUserChatMessage(msg));
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function appendUserChatMessage(msg) {
+            const msgBox = document.getElementById('userChatMessages');
+            const isMe = msg.sender === 'user';
+            const bubbleClass = isMe ? 'user-bubble-me' : 'user-bubble-admin';
+
+            const div = document.createElement('div');
+            div.className = `user-chat-bubble ${bubbleClass}`;
+            div.innerHTML = `
+                <div><strong>${msg.user_name}:</strong> ${msg.message}</div>
+                <div class="user-chat-time">${msg.timestamp}</div>
+            `;
+            msgBox.appendChild(div);
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+
+        function sendUserChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('userChatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const name = currentUser ? currentUser.name : "Mijoz";
+
+            userSocket.emit('send_message', {
+                session_id: chatSessionId,
+                sender: 'user',
+                user_name: name,
+                message: text
+            });
+
+            input.value = '';
+        }
+
+        async function fetchBooks() {
+            try {
+                const url = `/api/books?category=${currentCategory}&search=${encodeURIComponent(searchQuery)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    allBooksList = data.books;
+                    renderBooks(data.books);
+                }
+            } catch (error) { console.error("API Error:", error); }
+        }
+
+        function renderBooks(books) {
+            const bookGrid = document.getElementById('bookGrid');
+            if (books.length === 0) {
+                bookGrid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">Kitoblar topilmadi.</div>';
+                return;
+            }
+
+            let html = '';
+            books.forEach(book => {
+                const isFav = userFavorites.includes(book.id);
+                const favClass = isFav ? 'active-fav' : '';
+                const favIcon = isFav ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+                const commentCount = (book.comments && book.comments.length) ? book.comments.length : 0;
+                const badgeHtml = commentCount > 0 ? `<span class="comment-badge-count">${commentCount}</span>` : '';
+
+                html += `
+                    <div class="book-card">
+                        <div class="book-cover-wrap">
+                            <img src="${book.image}" class="book-cover-img" alt="${book.title}">
+                            <div class="quick-actions">
+                                <button class="btn-quick ${favClass}" title="Saralanganlarga saqlash" onclick="toggleFavorite(${book.id})"><i class="${favIcon}"></i></button>
+                                <button class="btn-quick" title="Kattalashtirish & Izohlar" onclick="openQuickView(${book.id})">
+                                    <i class="fa-regular fa-eye"></i>
+                                    ${badgeHtml}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="book-title">${book.title}</div>
+                        <div class="book-author">${book.author}</div>
+                        <div class="book-price">${book.price.toLocaleString()} so'm</div>
+                        <button class="btn-buy" onclick="addToCart('${book.title.replace(/'/g, "\\'")}', ${book.price})">Savatga qo'shish</button>
+                    </div>
+                `;
+            });
+
+            bookGrid.innerHTML = html;
+        }
+
+        async function toggleFavorite(bookId) {
+            if (!currentUser) {
+                alert("Saralanganlarga saqlash uchun avval tizimga kiring!");
+                openLoginModal();
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/user/favorites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: currentUser.email, book_id: bookId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    userFavorites = data.favorites;
+                    currentUser.favorites = userFavorites;
+                    localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
+                    updateUserUI();
+                    showToast(data.message);
+                    renderBooks(allBooksList);
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        function openFavoritesModal() {
+            if (!currentUser) {
+                alert("Saralangan kitoblaringizni ko'rish uchun avval tizimga kiring!");
+                openLoginModal();
+                return;
+            }
+            closeAllModals();
+            const favDiv = document.getElementById('favoritesList');
+            const favBooks = allBooksList.filter(b => userFavorites.includes(b.id));
+
+            if (favBooks.length === 0) {
+                favDiv.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Saralangan kitoblaringiz yo\'q.</p>';
+            } else {
+                let html = '';
+                favBooks.forEach(b => {
+                    html += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding:10px 0;">
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <img src="${b.image}" style="width:40px; height:55px; border-radius:4px; object-fit:cover;">
+                                <div>
+                                    <div style="font-weight:700; font-size:0.95rem;">${b.title}</div>
+                                    <div style="font-size:0.85rem; color:var(--text-muted);">${b.author}</div>
+                                    <div style="font-weight:800; color:var(--primary); font-size:0.9rem;">${b.price.toLocaleString()} so'm</div>
+                                </div>
+                            </div>
+                            <button onclick="addToCart('${b.title.replace(/'/g, "\\'")}', ${b.price})" class="btn-buy" style="width:auto; padding:6px 14px;">
+                                Savatga
+                            </button>
+                        </div>
+                    `;
+                });
+                favDiv.innerHTML = html;
+            }
+            document.getElementById('favoritesModal').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        function openQuickView(bookId) {
+            const book = allBooksList.find(b => b.id === bookId);
+            if (!book) return;
+
+            closeAllModals();
+            document.getElementById('qvBookId').value = book.id;
+            document.getElementById('qvImage').src = book.image;
+            document.getElementById('qvTitle').textContent = book.title;
+            document.getElementById('qvAuthor').textContent = book.author;
+            document.getElementById('qvPrice').textContent = `${book.price.toLocaleString()} so'm`;
+
+            if (currentUser) {
+                document.getElementById('commentUserName').value = currentUser.name;
+            } else {
+                document.getElementById('commentUserName').value = '';
+            }
+            
+            const qvBuyBtn = document.getElementById('qvBuyBtn');
+            qvBuyBtn.onclick = function() {
+                addToCart(book.title, book.price);
+                closeAllModals();
+            };
+
+            renderComments(book.comments || []);
+            document.getElementById('quickViewModal').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        function renderComments(comments) {
+            const commentsDiv = document.getElementById('qvCommentsList');
+            if (!comments || comments.length === 0) {
+                commentsDiv.innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted);">Hozircha izohlar yo'q. Birinchi bo'lib fikringizni yozib qoldiring!</p>`;
+                return;
+            }
+            let html = '';
+            comments.forEach(c => {
+                const displayName = c.user ? c.user : 'Anonim';
+                const isAnon = displayName === 'Anonim';
+                const nameStyle = isAnon ? 'color:#6c757d; font-style:italic;' : 'color:var(--primary); font-weight:700;';
+                const likesCount = c.likes || 0;
+                const replies = c.replies || [];
+
+                let repliesHtml = '';
+                if (replies.length > 0) {
+                    repliesHtml += `<div style="margin-top:8px; padding-left:12px; border-left:2px solid var(--primary-hover); display:flex; flex-direction:column; gap:6px;">`;
+                    replies.forEach(r => {
+                        repliesHtml += `
+                            <div style="background:#f1f5f9; padding:6px 10px; border-radius:6px; font-size:0.82rem;">
+                                <div style="display:flex; justify-content:space-between; color:var(--primary); font-weight:700;">
+                                    <span><i class="fa-solid fa-reply" style="transform:rotate(180deg);"></i> ${r.user}</span>
+                                    <span style="font-size:0.7rem; color:var(--text-muted); font-weight:normal;">${r.date || ''}</span>
+                                </div>
+                                <div style="color:#334155; margin-top:2px;">${r.text}</div>
+                            </div>
+                        `;
+                    });
+                    repliesHtml += `</div>`;
+                }
+
+                const myLikedComments = JSON.parse(localStorage.getItem('iqro_liked_comments') || '[]');
+                const isLikedByMe = myLikedComments.includes(c.id);
+                const heartIcon = isLikedByMe ? 'fa-solid fa-heart' : 'fa-regular fa-heart';
+                const heartColor = isLikedByMe ? '#ef4444' : '#64748b';
+
+                html += `
+                    <div style="background:#ffffff; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:0.88rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <span style="${nameStyle}"><i class="fa-regular fa-circle-user"></i> ${displayName}</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${c.date}</span>
+                        </div>
+                        <div style="color:#212529; margin-bottom:8px;">${c.text}</div>
+
+                        <!-- Actions: Like & Reply buttons -->
+                        <div style="display:flex; align-items:center; gap:14px; font-size:0.8rem; border-top:1px dashed #e2e8f0; padding-top:6px;">
+                            <button type="button" onclick="likeComment(${c.id})" style="background:none; border:none; color:${heartColor}; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px; transition: transform 0.15s ease;" title="${isLikedByMe ? "Like-ni olib tashlash" : "Like bosish"}">
+                                <i class="${heartIcon}"></i> <span>${likesCount}</span>
+                            </button>
+                            <button type="button" onclick="toggleReplyForm(${c.id})" style="background:none; border:none; color:var(--primary); font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                                <i class="fa-solid fa-reply"></i> Javob berish
+                            </button>
+                        </div>
+
+                        ${repliesHtml}
+
+                        <!-- Hidden Reply Box -->
+                        <div id="replyBox_${c.id}" style="display:none; margin-top:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                            <div style="display:flex; gap:6px;">
+                                <input type="text" id="replyInput_${c.id}" placeholder="Javobingizni yozing..." style="flex:1; padding:6px 10px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:4px; outline:none;">
+                                <button type="button" onclick="submitReply(${c.id})" class="btn-action btn-cart-primary" style="padding:6px 12px; font-size:0.8rem;">Yuborish</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            commentsDiv.innerHTML = html;
+        }
+
+        function toggleReplyForm(commentId) {
+            const box = document.getElementById(`replyBox_${commentId}`);
+            if (box) {
+                box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+            }
+        }
+
+        async function likeComment(commentId) {
+            let myLikedComments = JSON.parse(localStorage.getItem('iqro_liked_comments') || '[]');
+            const isLiked = myLikedComments.includes(commentId);
+            const action = isLiked ? 'unlike' : 'like';
+
+            try {
+                const res = await fetch(`/api/comments/${commentId}/like`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (isLiked) {
+                        myLikedComments = myLikedComments.filter(id => id !== commentId);
+                    } else {
+                        myLikedComments.push(commentId);
+                    }
+                    localStorage.setItem('iqro_liked_comments', JSON.stringify(myLikedComments));
+
+                    const bookId = document.getElementById('qvBookId').value;
+                    const book = allBooksList.find(b => b.id == bookId);
+                    if (book) {
+                        const targetComment = book.comments.find(c => c.id === commentId);
+                        if (targetComment) targetComment.likes = data.likes;
+                        renderComments(book.comments);
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function submitReply(commentId) {
+            const input = document.getElementById(`replyInput_${commentId}`);
+            const text = input ? input.value.trim() : '';
+            if (!text) return;
+
+            let userName = currentUser ? currentUser.name : 'Mijoz';
+
+            try {
+                const res = await fetch(`/api/comments/${commentId}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: userName, text: text })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("Javob yuborildi!");
+                    const bookId = document.getElementById('qvBookId').value;
+                    const book = allBooksList.find(b => b.id == bookId);
+                    if (book) {
+                        book.comments = data.comments;
+                        renderComments(book.comments);
+                    }
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        async function handleCommentSubmit(event) {
+            event.preventDefault();
+            const bookId = document.getElementById('qvBookId').value;
+            const text = document.getElementById('commentText').value;
+            let userName = document.getElementById('commentUserName').value.trim();
+
+            if (!userName && currentUser) {
+                userName = currentUser.name;
+            }
+
+            try {
+                const res = await fetch(`/api/books/${bookId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: userName, text: text })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message);
+                    document.getElementById('commentText').value = '';
+                    renderComments(data.comments);
+                    
+                    const book = allBooksList.find(b => b.id == bookId);
+                    if (book) book.comments = data.comments;
+
+                    fetchBooks();
+                }
+            } catch (err) { alert("Izoh yuborishda xatolik!"); }
+        }
+
+        function addToCart(title, price) {
+            const existingItem = cart.find(item => item.title === title);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ title, price, quantity: 1 });
+            }
+            updateCartUI();
+            showToast(`"${title}" savatga qo'shildi!`);
+        }
+
+        function updateCartUI() {
+            const cartCount = document.getElementById('cartCount');
+            const cartBody = document.getElementById('cartBody');
+            const cartTotalSum = document.getElementById('cartTotalSum');
+
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const totalSum = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+            cartCount.textContent = totalItems;
+            cartTotalSum.textContent = totalSum.toLocaleString() + " so'm";
+
+            if (cart.length === 0) {
+                cartBody.innerHTML = '<div class="cart-empty"><i class="fa-solid fa-basket-shopping"></i><p>Savatingiz hozircha bo\'sh</p></div>';
+            } else {
+                let html = '';
+                cart.forEach((item, index) => {
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+                            <div>
+                                <h4 style="font-size: 0.95rem;">${item.title}</h4>
+                                <div style="font-size: 0.85rem; color: var(--primary); font-weight: 700;">
+                                    ${item.price.toLocaleString()} so'm x ${item.quantity}
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <button onclick="changeQuantity(${index}, -1)" style="width:24px; height:24px; border:1px solid #ccc; background:#fff; cursor:pointer;">-</button>
+                                <span>${item.quantity}</span>
+                                <button onclick="changeQuantity(${index}, 1)" style="width:24px; height:24px; border:1px solid #ccc; background:#fff; cursor:pointer;">+</button>
+                                <button onclick="removeFromCart(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:1rem; margin-left:6px;">&times;</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                cartBody.innerHTML = html;
+            }
+        }
+
+        function changeQuantity(index, delta) {
+            cart[index].quantity += delta;
+            if (cart[index].quantity <= 0) cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function openLoginModal() {
+            closeAllModals();
+            document.getElementById('loginModal').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        async function handleLoginSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    userFavorites = currentUser.favorites || [];
+                    
+                    // SAVE USER TO LOCALSTORAGE PERMANENTLY
+                    localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
+                    
+                    updateUserUI();
+                    showToast(data.message);
+                    closeAllModals();
+                    renderBooks(allBooksList);
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        function openTrackModal() {
+            closeAllModals();
+            document.getElementById('trackOrdersModal').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+            fetchUserOrders();
+            if (trackingInterval) clearInterval(trackingInterval);
+            trackingInterval = setInterval(fetchUserOrders, 3000);
+        }
+
+        async function fetchUserOrders() {
+            const listDiv = document.getElementById('trackOrdersList');
+            const searchPhone = currentUser ? currentUser.phone : lastUserPhone;
+
+            try {
+                const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(searchPhone)}`);
+                const data = await res.json();
+                if (data.success) {
+                    if (data.orders.length === 0) {
+                        listDiv.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Aktiv buyurtmalar yo\'q.</p>';
+                    } else {
+                        let html = '';
+                        data.orders.forEach(o => {
+                            let badgeClass = 'status-qabul';
+                            if (o.status === "Yig'ilmoqda") badgeClass = 'status-yigilmoqda';
+                            else if (o.status === "Yuborildi") badgeClass = 'status-yuborildi';
+                            else if (o.status === "Yetkazib berildi") badgeClass = 'status-yetkazildi';
+
+                            const itemsList = o.items.map(i => `${i.title} (${i.quantity}x)`).join(', ');
+                            html += `
+                                <div style="border:1px solid var(--border-color); border-radius:6px; padding:12px; margin-bottom:10px;">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                        <strong>Buyurtma #${o.order_id}</strong>
+                                        <span class="status-badge ${badgeClass}">${o.status}</span>
+                                    </div>
+                                    <p style="font-size:0.85rem; color:var(--text-muted);">${itemsList}</p>
+                                    <div style="font-weight:700; font-size:0.9rem; margin-top:4px;">${o.total_price.toLocaleString()} so'm</div>
+                                </div>
+                            `;
+                        });
+                        listDiv.innerHTML = html;
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function openCheckoutModal() {
+            if (cart.length === 0) { alert("Savatingiz bo'sh!"); return; }
+            closeAllModals();
+            if (currentUser) {
+                document.getElementById('orderName').value = currentUser.name;
+                document.getElementById('orderPhone').value = currentUser.phone;
+            }
+            document.getElementById('checkoutModal').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        async function handleCheckoutSubmit(event) {
+            event.preventDefault();
+            const name = document.getElementById('orderName').value;
+            const phone = document.getElementById('orderPhone').value;
+            const address = document.getElementById('orderAddress').value;
+            const payment_method = document.getElementById('orderPayment').value;
+            lastUserPhone = phone;
+
+            try {
+                const response = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, address, payment_method, items: cart })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                    cart = [];
+                    updateCartUI();
+                    closeAllModals();
+                    openTrackModal();
+                }
+            } catch (err) { alert("Xatolik!"); }
+        }
+
+        function openCart() {
+            closeAllModals();
+            document.getElementById('cartModal').classList.add('open');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        function closeAllModals() {
+            document.getElementById('cartModal').classList.remove('open');
+            document.getElementById('loginModal').classList.remove('active');
+            document.getElementById('checkoutModal').classList.remove('active');
+            document.getElementById('trackOrdersModal').classList.remove('active');
+            document.getElementById('quickViewModal').classList.remove('active');
+            document.getElementById('favoritesModal').classList.remove('active');
+            document.getElementById('overlay').classList.remove('active');
+            if (trackingInterval) clearInterval(trackingInterval);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function handleSearch() {
+            searchQuery = document.getElementById('searchInput').value;
+            fetchBooks();
+        }
+
+        function filterCategory(cat, element) {
+            document.querySelectorAll('.nav-categories a').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            currentCategory = cat;
+            fetchBooks();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            checkSavedUserSession();
+            fetchSettings();
+            fetchBooks();
+        });
+    </script>
+</body>
+</html>
