@@ -1042,24 +1042,7 @@
         }
 
         async function checkAuth() {
-            try {
-                const res = await fetch('/api/admin/check-auth');
-                if (!res.ok) {
-                    throw new Error("Server not available");
-                }
-                const data = await res.json();
-                if (data.logged_in) {
-                    document.getElementById('adminLoginScreen').style.display = 'none';
-                    document.getElementById('adminDashboard').style.display = 'flex';
-                    
-                    const savedTab = localStorage.getItem('iqro_admin_active_tab') || 'books';
-                    switchTab(savedTab);
-                    initSocket();
-                    fetchAdminChatSessions();
-                    return;
-                }
-            } catch (err) {
-                console.log("Backend ulanmagan (Static Mode):", err);
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
                 if (localStorage.getItem('iqro_admin_static_session') === 'true') {
                     document.getElementById('adminLoginScreen').style.display = 'none';
                     document.getElementById('adminDashboard').style.display = 'flex';
@@ -1067,6 +1050,35 @@
                     switchTab(savedTab);
                     return;
                 }
+                document.getElementById('adminLoginScreen').style.display = 'flex';
+                document.getElementById('adminDashboard').style.display = 'none';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/check-auth');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.logged_in) {
+                        document.getElementById('adminLoginScreen').style.display = 'none';
+                        document.getElementById('adminDashboard').style.display = 'flex';
+                        const savedTab = localStorage.getItem('iqro_admin_active_tab') || 'books';
+                        switchTab(savedTab);
+                        initSocket();
+                        fetchAdminChatSessions();
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.log("Backend ulanmagan (Static Mode):", err);
+            }
+
+            if (localStorage.getItem('iqro_admin_static_session') === 'true') {
+                document.getElementById('adminLoginScreen').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'flex';
+                const savedTab = localStorage.getItem('iqro_admin_active_tab') || 'books';
+                switchTab(savedTab);
+                return;
             }
 
             document.getElementById('adminLoginScreen').style.display = 'flex';
@@ -1075,8 +1087,20 @@
 
         async function handleAdminLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('adminUsername').value;
-            const password = document.getElementById('adminPassword').value;
+            const username = document.getElementById('adminUsername').value.trim();
+            const password = document.getElementById('adminPassword').value.trim();
+
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
+                if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
+                    localStorage.setItem('iqro_admin_static_session', 'true');
+                    checkAuth();
+                    return;
+                } else {
+                    alert("Login yoki parol xato!");
+                    return;
+                }
+            }
 
             try {
                 const res = await fetch('/api/admin/login', {
@@ -1085,28 +1109,27 @@
                     body: JSON.stringify({ username, password })
                 });
 
-                if (!res.ok) {
-                    throw new Error("Server response not ok");
-                }
-
-                const data = await res.json();
-                if (data.success) {
-                    checkAuth();
-                    return;
-                } else {
-                    alert(data.message || "Login yoki parol xato!");
-                    return;
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        checkAuth();
+                        return;
+                    } else {
+                        alert(data.message || "Login yoki parol xato!");
+                        return;
+                    }
                 }
             } catch (err) {
-                // Backend bo'lmagan statik hosting muhitida (Netlify / GitHub Pages)
-                const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
-                if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
-                    localStorage.setItem('iqro_admin_static_session', 'true');
-                    checkAuth();
-                    return;
-                }
-                alert("Login yoki parol xato!");
+                console.log("Static mode login fallback triggered");
             }
+
+            const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
+            if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
+                localStorage.setItem('iqro_admin_static_session', 'true');
+                checkAuth();
+                return;
+            }
+            alert("Login yoki parol xato!");
         }
 
         async function handleAdminLogout() {
