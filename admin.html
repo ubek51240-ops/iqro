@@ -1514,52 +1514,63 @@
             try {
                 const res = await fetch('/api/books');
                 const data = await res.json();
-                if (data.success) {
-                    const tbody = document.getElementById('commentsTableBody');
-                    let html = '';
-                    data.books.forEach(b => {
-                        if (b.comments && b.comments.length > 0) {
-                            b.comments.forEach(c => {
-                                const replies = c.replies || [];
-                                let repliesText = replies.map(r => `<div><strong>${r.user}:</strong> ${r.text}</div>`).join('');
-                                if (!repliesText) repliesText = '<span style="color:var(--text-muted);">-</span>';
-
-                                html += `
-                                    <tr>
-                                        <td>#${c.id}</td>
-                                        <td><strong>${b.title}</strong></td>
-                                        <td>${c.user || 'Anonim'}</td>
-                                        <td>${c.text}</td>
-                                        <td><span style="color:#ef4444; font-weight:700;"><i class="fa-solid fa-heart"></i> ${c.likes || 0}</span></td>
-                                        <td style="font-size:0.85rem;">${repliesText}</td>
-                                        <td>
-                                            <button class="btn-action-icon btn-edit" title="Like" onclick="adminLikeComment(${c.id})"><i class="fa-solid fa-thumbs-up"></i></button>
-                                            <button class="btn-action-icon btn-edit" title="Javob qaytarish" onclick="adminReplyComment(${c.id})"><i class="fa-solid fa-reply"></i></button>
-                                        </td>
-                                    </tr>
-                                `;
-                            });
-                        }
-                    });
-
-                    if (!html) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Hozircha hech qanday izohlar yozilmagan.</td></tr>';
-                    } else {
-                        tbody.innerHTML = html;
-                    }
+                if (data.success && data.books.length > 0) {
+                    renderAdminCommentsTable(data.books);
+                    return;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) { console.error("Admin comments fetch error:", err); }
+
+            // Static fallback: Get books and attach stored local comments
+            const fallbackBooks = [
+                { id: 1, title: "Saodat Asri Qissalari" },
+                { id: 2, title: "Uloq / Badiiy to'plam" },
+                { id: 3, title: "Boy Ota, Kambag'al Ota" },
+                { id: 4, title: "Atom Odatlar" }
+            ];
+
+            fallbackBooks.forEach(b => {
+                b.comments = JSON.parse(localStorage.getItem(`iqro_book_comments_${b.id}`) || '[]');
+            });
+
+            renderAdminCommentsTable(fallbackBooks);
         }
 
-        async function adminLikeComment(commentId) {
-            try {
-                const res = await fetch(`/api/comments/${commentId}/like`, { method: 'POST' });
-                const data = await res.json();
-                if (data.success) fetchAdminComments();
-            } catch (err) { alert("Xatolik!"); }
+        function renderAdminCommentsTable(books) {
+            const tbody = document.getElementById('commentsTableBody');
+            let html = '';
+            books.forEach(b => {
+                if (b.comments && b.comments.length > 0) {
+                    b.comments.forEach(c => {
+                        const displayName = c.user_name || c.user || 'Kitobxon';
+                        const replies = c.replies || [];
+                        let repliesText = replies.map(r => `<div><strong>${r.user}:</strong> ${r.text}</div>`).join('');
+                        if (!repliesText) repliesText = '<span style="color:var(--text-muted);">-</span>';
+
+                        html += `
+                            <tr>
+                                <td>#${c.id}</td>
+                                <td><strong>${b.title}</strong></td>
+                                <td>${displayName}</td>
+                                <td>${c.text || c.comment_text}</td>
+                                <td><span style="color:#ef4444; font-weight:700;"><i class="fa-solid fa-heart"></i> ${c.likes || 0}</span></td>
+                                <td style="font-size:0.85rem;">${repliesText}</td>
+                                <td>
+                                    <button class="btn-action-icon btn-edit" title="Javob qaytarish" onclick="adminReplyComment(${b.id}, ${c.id})"><i class="fa-solid fa-reply"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            if (!html) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Hozircha hech qanday izohlar yozilmagan.</td></tr>';
+            } else {
+                tbody.innerHTML = html;
+            }
         }
 
-        async function adminReplyComment(commentId) {
+        async function adminReplyComment(bookId, commentId) {
             const replyText = prompt("Admin javobini kiriting:");
             if (!replyText || !replyText.trim()) return;
 
@@ -1573,8 +1584,24 @@
                 if (data.success) {
                     alert("Admin javobi saqlandi!");
                     fetchAdminComments();
+                    return;
                 }
-            } catch (err) { alert("Xatolik!"); }
+            } catch (err) { console.error("Admin reply error:", err); }
+
+            // Static mode local storage reply fallback
+            const storedComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${bookId}`) || '[]');
+            const comment = storedComments.find(c => c.id == commentId);
+            if (comment) {
+                if (!comment.replies) comment.replies = [];
+                comment.replies.push({
+                    user: 'Admin 🛡️',
+                    text: replyText.trim(),
+                    date: new Date().toLocaleDateString()
+                });
+                localStorage.setItem(`iqro_book_comments_${bookId}`, JSON.stringify(storedComments));
+                alert("Admin javobi saqlandi!");
+                fetchAdminComments();
+            }
         }
 
         async function handleAdminCredentialsSubmit(e) {

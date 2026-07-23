@@ -1610,8 +1610,40 @@
                         book.comments = data.comments;
                         renderComments(book.comments);
                     }
+                    return;
                 }
-            } catch (err) { alert("Xatolik!"); }
+            } catch (err) { console.error("Reply API error:", err); }
+
+            // Static mode local storage fallback for replies
+            const bookId = document.getElementById('qvBookId').value;
+            const book = allBooksList.find(b => b.id == bookId);
+            if (book && book.comments) {
+                const targetComment = book.comments.find(c => c.id == commentId);
+                if (targetComment) {
+                    if (!targetComment.replies) targetComment.replies = [];
+                    targetComment.replies.push({
+                        user: userName,
+                        text: text,
+                        date: new Date().toLocaleDateString()
+                    });
+
+                    // Save back to localStorage
+                    const storedComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${bookId}`) || '[]');
+                    const storedComment = storedComments.find(c => c.id == commentId);
+                    if (storedComment) {
+                        if (!storedComment.replies) storedComment.replies = [];
+                        storedComment.replies.push({
+                            user: userName,
+                            text: text,
+                            date: new Date().toLocaleDateString()
+                        });
+                        localStorage.setItem(`iqro_book_comments_${bookId}`, JSON.stringify(storedComments));
+                    }
+
+                    renderComments(book.comments);
+                    showToast("Javobingiz saqlandi!");
+                }
+            }
         }
 
         async function handleCommentSubmit(event) {
