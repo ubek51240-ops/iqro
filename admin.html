@@ -1014,15 +1014,22 @@
                 }
             } catch(e) { console.error(e); }
 
-            // Real-time tab/window storage event sync for instant chat updates without refresh
+            // Real-time storage sync + 1.5s interval polling for instant real-time delivery to admin
             window.addEventListener('storage', (e) => {
-                if (e.key === 'iqro_admin_static_chat_sessions' || (activeSessionId && e.key === `iqro_chat_msgs_${activeSessionId}`)) {
+                if (e.key === 'iqro_admin_static_chat_sessions' || e.key.startsWith('iqro_chat_msgs_')) {
                     fetchAdminChatSessions();
                     if (activeSessionId) {
-                        openAdminChatSession(activeSessionId);
+                        loadAdminCurrentChat();
                     }
                 }
             });
+
+            setInterval(() => {
+                fetchAdminChatSessions();
+                if (activeSessionId) {
+                    loadAdminCurrentChat();
+                }
+            }, 1500);
         }
 
         function showAdminToast(title, body) {
@@ -1202,6 +1209,16 @@
             listDiv.innerHTML = html;
         }
 
+        function loadAdminCurrentChat() {
+            if (!activeSessionId) return;
+            const storedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${activeSessionId}`) || '[]');
+            const msgBox = document.getElementById('adminChatMessages');
+            if (msgBox) {
+                msgBox.innerHTML = '';
+                storedMsgs.forEach(msg => appendAdminChatMessage(msg));
+            }
+        }
+
         async function openAdminChatSession(sessionId, userName) {
             activeSessionId = sessionId;
             document.getElementById('adminChatInput').disabled = false;
@@ -1227,23 +1244,7 @@
                 }
             } catch (err) { console.error("Chat message load error:", err); }
 
-            // Static fallback: Read real stored user messages from localStorage
-            const storedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${sessionId}`) || '[]');
-            const msgBox = document.getElementById('adminChatMessages');
-            msgBox.innerHTML = '';
-
-            if (storedMsgs.length === 0) {
-                appendAdminChatMessage({
-                    sender: 'user',
-                    user_name: userName,
-                    message: 'Assalomu alaykum! Kitob yetkazib berish necha kun davom etadi?',
-                    timestamp: 'Hozir'
-                });
-            } else {
-                storedMsgs.forEach(msg => appendAdminChatMessage(msg));
-            }
-
-            fetchAdminChatSessions();
+            loadAdminCurrentChat();
         }
 
         function appendAdminChatMessage(msg) {
