@@ -1345,7 +1345,8 @@
                 }
             } catch (error) { console.error("API Error:", error); }
 
-            // GitHub Pages statik namoyish rejimi (Fallback demo kitoblar)
+            // GitHub Pages / Netlify statik namoyish rejimi
+            const localCustomBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
             const fallbackBooks = [
                 { id: 1, title: "Saodat Asri Qissalari", author: "Lutfiy Qozonchi", price: 120000, category: "diniy", image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" },
                 { id: 2, title: "Uloq / Badiiy to'plam", author: "Abdulla Qodiriy", price: 45000, category: "badiiy", image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80" },
@@ -1353,13 +1354,24 @@
                 { id: 4, title: "Atom Odatlar", author: "James Clear", price: 58000, category: "psixologiya", image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&q=80" }
             ];
 
-            fallbackBooks.forEach(b => {
+            let mergedBooks = [...localCustomBooks, ...fallbackBooks];
+
+            // Apply category and search filters if selected
+            if (currentCategory && currentCategory !== 'all') {
+                mergedBooks = mergedBooks.filter(b => b.category === currentCategory);
+            }
+            if (searchQuery) {
+                const sq = searchQuery.toLowerCase();
+                mergedBooks = mergedBooks.filter(b => b.title.toLowerCase().includes(sq) || b.author.toLowerCase().includes(sq));
+            }
+
+            mergedBooks.forEach(b => {
                 const storedComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${b.id}`) || '[]');
                 b.comments = storedComments;
             });
 
-            allBooksList = fallbackBooks;
-            renderBooks(fallbackBooks);
+            allBooksList = mergedBooks;
+            renderBooks(mergedBooks);
         }
 
         function renderBooks(books) {
