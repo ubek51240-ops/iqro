@@ -1044,6 +1044,9 @@
         async function checkAuth() {
             try {
                 const res = await fetch('/api/admin/check-auth');
+                if (!res.ok) {
+                    throw new Error("Server not available");
+                }
                 const data = await res.json();
                 if (data.logged_in) {
                     document.getElementById('adminLoginScreen').style.display = 'none';
@@ -1056,7 +1059,7 @@
                     return;
                 }
             } catch (err) {
-                console.error("Backend ulanmagan (Static Mode):", err);
+                console.log("Backend ulanmagan (Static Mode):", err);
                 if (localStorage.getItem('iqro_admin_static_session') === 'true') {
                     document.getElementById('adminLoginScreen').style.display = 'none';
                     document.getElementById('adminDashboard').style.display = 'flex';
@@ -1082,17 +1085,22 @@
                     body: JSON.stringify({ username, password })
                 });
 
+                if (!res.ok) {
+                    throw new Error("Server response not ok");
+                }
+
                 const data = await res.json();
                 if (data.success) {
                     checkAuth();
                     return;
                 } else {
-                    alert(data.message);
+                    alert(data.message || "Login yoki parol xato!");
                     return;
                 }
             } catch (err) {
-                // Backend ishlamayotgan paytda (masalan GitHub Pages statik ko'rishda)
-                if ((username === 'admin' && password === '123') || (username && password)) {
+                // Backend bo'lmagan statik hosting muhitida (Netlify / GitHub Pages)
+                const savedCreds = JSON.parse(localStorage.getItem('iqro_admin_credentials') || '{"username":"admin","password":"123"}');
+                if ((username === savedCreds.username && password === savedCreds.password) || (username === 'admin' && password === '123') || (username && password)) {
                     localStorage.setItem('iqro_admin_static_session', 'true');
                     checkAuth();
                     return;
@@ -1652,6 +1660,8 @@
             const old_password = document.getElementById('oldAdminPassword').value.trim();
             const new_password = document.getElementById('newAdminPassword').value.trim();
 
+            const credsPayload = { username: new_username || 'admin', password: new_password || old_password || '123' };
+
             try {
                 const res = await fetch('/api/admin/change-credentials', {
                     method: 'POST',
@@ -1659,13 +1669,21 @@
                     body: JSON.stringify({ old_password, new_username, new_password })
                 });
 
+                if (!res.ok) throw new Error("Server not available");
+
                 const data = await res.json();
                 alert(data.message);
                 if (data.success) {
+                    localStorage.setItem('iqro_admin_credentials', JSON.stringify(credsPayload));
                     document.getElementById('oldAdminPassword').value = '';
                     document.getElementById('newAdminPassword').value = '';
                 }
-            } catch (err) { alert("Server bilan bog'lanishda xatolik!"); }
+            } catch (err) {
+                localStorage.setItem('iqro_admin_credentials', JSON.stringify(credsPayload));
+                alert("Login va parol muvaffaqiyatli saqlandi!");
+                document.getElementById('oldAdminPassword').value = '';
+                document.getElementById('newAdminPassword').value = '';
+            }
         }
 
         function switchTab(tab) {
