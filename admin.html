@@ -2098,14 +2098,27 @@
             }
         }
 
-        function selectChatSession(sid, userName) {
+        async function selectChatSession(sid, userName) {
             currentChatSessionId = sid;
             activeChatUserName = userName;
             document.getElementById('activeChatName').innerText = userName || 'Foydalanuvchi';
 
-            // Mark session messages as read
+            // Mark session messages as read in memory
             if (chatSessions[sid] && chatSessions[sid].messages) {
                 chatSessions[sid].messages.forEach(m => m.is_read = true);
+            }
+
+            // Sync backend API: Mark messages as read in SQLite DB
+            try {
+                await fetch(`/api/chat/messages/${sid}`);
+            } catch (e) {}
+
+            // Sync static localStorage mode
+            const key = `iqro_chat_msgs_${sid}`;
+            const localMsgs = JSON.parse(localStorage.getItem(key) || '[]');
+            if (localMsgs.length > 0) {
+                localMsgs.forEach(m => m.is_read = true);
+                localStorage.setItem(key, JSON.stringify(localMsgs));
             }
 
             renderChatSessions();
