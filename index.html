@@ -1834,6 +1834,11 @@
             const listDiv = document.getElementById('trackOrdersList');
             const searchPhone = currentUser ? currentUser.phone : lastUserPhone;
 
+            if (!searchPhone) {
+                renderOrdersList([]);
+                return;
+            }
+
             try {
                 const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(searchPhone)}`);
                 const data = await res.json();
@@ -1843,9 +1848,10 @@
                 }
             } catch (err) { console.error("Order track fetch error:", err); }
 
-            // Local fallback orders
+            // Local fallback orders - filter strictly by searchPhone
             const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            renderOrdersList(localOrders);
+            const userOrders = localOrders.filter(o => o.phone === searchPhone);
+            renderOrdersList(userOrders);
         }
 
         function renderOrdersList(orders) {

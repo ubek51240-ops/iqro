@@ -269,6 +269,7 @@ def change_admin_credentials():
     return jsonify({"success": True, "message": "Admin login va paroli muvaffaqiyatli o'zgartirildi!"})
 
 @app.route('/api/admin/check-auth', methods=['GET'])
+@app.route('/api/admin/check-session', methods=['GET'])
 def check_admin_auth():
     if session.get('admin_logged_in'):
         return jsonify({"success": True, "logged_in": True})
@@ -320,6 +321,47 @@ def get_chat_sessions():
 
     conn.close()
     return jsonify({"success": True, "sessions": sessions, "total_unread": total_unread})
+
+@app.route('/api/admin/chat-history', methods=['GET'])
+def get_admin_chat_history():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT chat_session_id, MIN(id) as first_id
+        FROM chat_messages
+        GROUP BY chat_session_id
+        ORDER BY first_id ASC
+    ''')
+    session_order = [r['chat_session_id'] for r in cursor.fetchall()]
+    session_index_map = {sid: idx + 1 for idx, sid in enumerate(session_order)}
+
+    cursor.execute('''
+        SELECT chat_session_id, user_name, sender, message, timestamp
+        FROM chat_messages ORDER BY id ASC
+    ''')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    sessions = {}
+    for r in rows:
+        sid = r['chat_session_id']
+        name = r['user_name']
+        if not name or name == 'Mijoz' or name == 'Foydalanuvchi':
+            name = f"Mijoz #{session_index_map.get(sid, 1)}"
+
+        if sid not in sessions:
+            sessions[sid] = {
+                'user_name': name,
+                'messages': []
+            }
+        sessions[sid]['messages'].append({
+            'sender': r['sender'],
+            'message': r['message'],
+            'timestamp': r['timestamp']
+        })
+
+    return jsonify({"success": True, "sessions": sessions})
 
 # Chat xabarlarni o'qilgan deb belgilash
 @app.route('/api/chat/messages/<session_id>', methods=['GET'])
@@ -684,9 +726,15 @@ def get_orders():
 
 # Admin API: Buyurtma statusi
 @app.route('/api/admin/orders/<int:order_id>/status', methods=['PUT'])
-def update_order_status(order_id):
+@app.route('/api/admin/orders/update-status', methods=['POST'])
+def update_order_status(order_id=None):
     data = request.get_json() or {}
+    if not order_id:
+        order_id = data.get('order_id')
     new_status = data.get('status')
+
+    if not order_id or not new_status:
+        return jsonify({"success": False, "message": "Order ID va yangi status kiritilmadi!"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -699,9 +747,12 @@ def update_order_status(order_id):
 @app.route('/api/orders/track', methods=['GET'])
 def track_orders():
     phone = request.args.get('phone', '').strip()
+    if not phone:
+        return jsonify({"success": True, "orders": []})
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM orders WHERE phone LIKE ? ORDER BY order_id DESC', (f'%{phone}%',))
+    cursor.execute('SELECT * FROM orders WHERE phone = ? ORDER BY order_id DESC', (phone,))
     rows = cursor.fetchall()
     orders_list = []
     for r in rows:
