@@ -994,23 +994,35 @@
         let activeSessionId = null;
 
         function initSocket() {
-            if (!socket) {
-                socket = io();
-                socket.emit('join_admin');
+            try {
+                if (!socket && typeof io === 'function') {
+                    socket = io();
+                    socket.emit('join_admin');
 
-                socket.on('receive_message', (msg) => {
+                    socket.on('receive_message', (msg) => {
+                        fetchAdminChatSessions();
+                        
+                        // Show notification if message is from a user
+                        if (msg.sender === 'user') {
+                            showAdminToast(`💬 ${msg.user_name}`, msg.message);
+                        }
+
+                        if (activeSessionId && msg.session_id === activeSessionId) {
+                            appendAdminChatMessage(msg);
+                        }
+                    });
+                }
+            } catch(e) { console.error(e); }
+
+            // Real-time tab/window storage event sync for instant chat updates without refresh
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'iqro_admin_static_chat_sessions' || (activeSessionId && e.key === `iqro_chat_msgs_${activeSessionId}`)) {
                     fetchAdminChatSessions();
-                    
-                    // Show notification if message is from a user
-                    if (msg.sender === 'user') {
-                        showAdminToast(`💬 ${msg.user_name}`, msg.message);
+                    if (activeSessionId) {
+                        openAdminChatSession(activeSessionId);
                     }
-
-                    if (activeSessionId && msg.session_id === activeSessionId) {
-                        appendAdminChatMessage(msg);
-                    }
-                });
-            }
+                }
+            });
         }
 
         function showAdminToast(title, body) {

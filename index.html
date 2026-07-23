@@ -1162,16 +1162,25 @@
         }
 
         function initUserSocket() {
-            if (!userSocket) {
-                userSocket = io();
-                userSocket.emit('join_chat', { session_id: chatSessionId });
+            try {
+                if (!userSocket && typeof io === 'function') {
+                    userSocket = io();
+                    userSocket.emit('join_chat', { session_id: chatSessionId });
 
-                userSocket.on('receive_message', (msg) => {
-                    if (msg.session_id === chatSessionId) {
-                        appendUserChatMessage(msg);
-                    }
-                });
-            }
+                    userSocket.on('receive_message', (msg) => {
+                        if (msg.session_id === chatSessionId) {
+                            appendUserChatMessage(msg);
+                        }
+                    });
+                }
+            } catch (e) { console.error(e); }
+
+            // Real-time tab/window storage event sync for instant message delivery without page refresh
+            window.addEventListener('storage', (e) => {
+                if (e.key === `iqro_chat_msgs_${chatSessionId}`) {
+                    loadUserChatHistory();
+                }
+            });
         }
 
         async function fetchSettings() {
