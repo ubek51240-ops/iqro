@@ -1222,16 +1222,23 @@
             try {
                 const res = await fetch(`/api/chat/messages/${chatSessionId}`);
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.messages.length > 0) {
                     const msgBox = document.getElementById('userChatMessages');
                     msgBox.innerHTML = '';
-                    if (data.messages.length === 0) {
-                        msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, yozing.</div>';
-                    } else {
-                        data.messages.forEach(msg => appendUserChatMessage(msg));
-                    }
+                    data.messages.forEach(msg => appendUserChatMessage(msg));
+                    return;
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) { console.error("Chat fetch error:", err); }
+
+            // LocalStorage fallback for static mode
+            const savedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${chatSessionId}`) || '[]');
+            const msgBox = document.getElementById('userChatMessages');
+            msgBox.innerHTML = '';
+            if (savedMsgs.length === 0) {
+                msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, shu yerga yozishingiz mumkin.</div>';
+            } else {
+                savedMsgs.forEach(msg => appendUserChatMessage(msg));
+            }
         }
 
         function appendUserChatMessage(msg) {
@@ -1243,7 +1250,7 @@
             div.className = `user-chat-bubble ${bubbleClass}`;
             div.innerHTML = `
                 <div><strong>${msg.user_name}:</strong> ${msg.message}</div>
-                <div class="user-chat-time">${msg.timestamp}</div>
+                <div class="user-chat-time">${msg.timestamp || 'Hozir'}</div>
             `;
             msgBox.appendChild(div);
             msgBox.scrollTop = msgBox.scrollHeight;
@@ -1256,14 +1263,44 @@
             if (!text) return;
 
             const name = currentUser ? currentUser.name : "Mijoz";
-
-            userSocket.emit('send_message', {
-                session_id: chatSessionId,
+            const newMsg = {
                 sender: 'user',
                 user_name: name,
-                message: text
-            });
+                message: text,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
 
+            try {
+                if (typeof userSocket !== 'undefined' && userSocket && userSocket.connected) {
+                    userSocket.emit('send_message', {
+                        session_id: chatSessionId,
+                        ...newMsg
+                    });
+                }
+            } catch (err) { console.error(err); }
+
+            // Save to localStorage for static display & update UI immediately
+            const savedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${chatSessionId}`) || '[]');
+            savedMsgs.push(newMsg);
+            localStorage.setItem(`iqro_chat_msgs_${chatSessionId}`, JSON.stringify(savedMsgs));
+
+            // Sync with admin chat session
+            const adminSessions = JSON.parse(localStorage.getItem('iqro_admin_static_chat_sessions') || '[]');
+            const existingSession = adminSessions.find(s => s.chat_session_id === chatSessionId);
+            if (existingSession) {
+                existingSession.last_message = text;
+                existingSession.unread_count += 1;
+            } else {
+                adminSessions.unshift({
+                    chat_session_id: chatSessionId,
+                    user_name: name,
+                    last_message: text,
+                    unread_count: 1
+                });
+            }
+            localStorage.setItem('iqro_admin_static_chat_sessions', JSON.stringify(adminSessions));
+
+            appendUserChatMessage(newMsg);
             input.value = '';
         }
 
@@ -1287,6 +1324,12 @@
                 { id: 3, title: "Boy Ota, Kambag'al Ota", author: "Robert Kiyosaki", price: 65000, category: "biznes", image: "https://images.unsplash.com/photo-1592496431122-2349e0fbc666?w=400&q=80" },
                 { id: 4, title: "Atom Odatlar", author: "James Clear", price: 58000, category: "psixologiya", image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&q=80" }
             ];
+
+            fallbackBooks.forEach(b => {
+                const storedComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${b.id}`) || '[]');
+                b.comments = storedComments;
+            });
+
             allBooksList = fallbackBooks;
             renderBooks(fallbackBooks);
         }
@@ -1607,13 +1650,20 @@
                 const newComment = {
                     id: Date.now(),
                     user_name: userName,
-                    comment_text: text,
-                    likes: 0
+                    text: text,
+                    likes: 0,
+                    date: new Date().toLocaleDateString()
                 };
                 book.comments.unshift(newComment);
+
+                // Save to localStorage so comments persist on refresh
+                const storedComments = JSON.parse(localStorage.getItem(`iqro_book_comments_${bookId}`) || '[]');
+                storedComments.unshift(newComment);
+                localStorage.setItem(`iqro_book_comments_${bookId}`, JSON.stringify(storedComments));
+
                 renderComments(book.comments);
                 document.getElementById('commentText').value = '';
-                showToast("Izohingiz qo'shildi!");
+                showToast("Izohingiz saqlandi!");
                 renderBooks(allBooksList);
             }
         }
