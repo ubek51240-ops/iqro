@@ -1556,12 +1556,10 @@
         async function handleCommentSubmit(event) {
             event.preventDefault();
             const bookId = document.getElementById('qvBookId').value;
-            const text = document.getElementById('commentText').value;
-            let userName = document.getElementById('commentUserName').value.trim();
+            const text = document.getElementById('commentText').value.trim();
+            let userName = document.getElementById('commentUserName').value.trim() || (currentUser ? currentUser.name : "Mehmon");
 
-            if (!userName && currentUser) {
-                userName = currentUser.name;
-            }
+            if (!text) return;
 
             try {
                 const res = await fetch(`/api/books/${bookId}/comments`, {
@@ -1580,8 +1578,26 @@
                     if (book) book.comments = data.comments;
 
                     fetchBooks();
+                    return;
                 }
-            } catch (err) { alert("Izoh yuborishda xatolik!"); }
+            } catch (err) { console.error("Comment submit API error:", err); }
+
+            // Backend server bo'lmaganda statik namoyish fallback izoh qo'shish:
+            const book = allBooksList.find(b => b.id == bookId);
+            if (book) {
+                if (!book.comments) book.comments = [];
+                const newComment = {
+                    id: Date.now(),
+                    user_name: userName,
+                    comment_text: text,
+                    likes: 0
+                };
+                book.comments.unshift(newComment);
+                renderComments(book.comments);
+                document.getElementById('commentText').value = '';
+                showToast("Izohingiz qo'shildi!");
+                renderBooks(allBooksList);
+            }
         }
 
         function addToCart(title, price) {
