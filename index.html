@@ -1331,10 +1331,11 @@
         }
 
         async function toggleFavorite(bookId) {
+            // Tizimga kirmagan bo'lsa, vaqtinchalik mehmon sifatida yurakchani bosishga ruxsat beramiz
             if (!currentUser) {
-                alert("Saralanganlarga saqlash uchun avval tizimga kiring!");
-                openLoginModal();
-                return;
+                currentUser = { name: "Mehmon", email: "guest@iqro.uz", phone: "+998 90 000 00 00", favorites: [] };
+                localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
+                updateUserUI();
             }
 
             try {
@@ -1351,8 +1352,24 @@
                     updateUserUI();
                     showToast(data.message);
                     renderBooks(allBooksList);
+                    return;
                 }
-            } catch (err) { alert("Xatolik!"); }
+            } catch (err) { console.error("Favorite API error:", err); }
+
+            // Backend bo'lmagan statik ko'rinish rejimida lokal yurakcha bosish:
+            const index = userFavorites.indexOf(bookId);
+            if (index > -1) {
+                userFavorites.splice(index, 1);
+                showToast("Saralanganlardan olib tashlandi");
+            } else {
+                userFavorites.push(bookId);
+                showToast("Saralanganlarga saqlandi!");
+            }
+
+            currentUser.favorites = userFavorites;
+            localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
+            updateUserUI();
+            renderBooks(allBooksList);
         }
 
         function openFavoritesModal() {
