@@ -9,6 +9,8 @@ from datetime import datetime, date
 from werkzeug.utils import secure_filename
 from functools import wraps
 
+from db import DB, USE_PG
+
 ADMIN_TOKEN = None
 
 def admin_required(f):
@@ -19,7 +21,6 @@ def admin_required(f):
         token = auth_header.replace('Bearer ', '').strip()
         if ADMIN_TOKEN and token == ADMIN_TOKEN:
             return f(*args, **kwargs)
-        # fallback: session cookie
         if session.get('admin_logged_in'):
             return f(*args, **kwargs)
         return jsonify({"success": False, "message": "Ruxsat berilmadi! Admin tizimiga kiring."}), 403
@@ -60,7 +61,6 @@ def handle_options(path):
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-DB_FILE = os.path.join(os.path.dirname(__file__), 'database.db')
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -72,27 +72,22 @@ ADMIN_CREDENTIALS = {
     "password": "123"
 }
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_FILE, timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL')
-    conn.execute('PRAGMA busy_timeout=30000')
-    return conn
+def auto_id():
+    return 'SERIAL PRIMARY KEY' if USE_PG else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 
 def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         )
     ''')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {auto_id()},
             title TEXT NOT NULL,
             author TEXT NOT NULL,
             price INTEGER NOT NULL,
@@ -108,9 +103,9 @@ def init_db():
         )
     ''')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {auto_id()},
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
@@ -118,18 +113,18 @@ def init_db():
         )
     ''')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS favorites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {auto_id()},
             user_email TEXT NOT NULL,
             book_id INTEGER NOT NULL,
             UNIQUE(user_email, book_id)
         )
     ''')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS orders (
-            order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id {auto_id()},
             customer_name TEXT NOT NULL,
             phone TEXT NOT NULL,
             address TEXT NOT NULL,
@@ -141,9 +136,9 @@ def init_db():
         )
     ''')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS comments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {auto_id()},
             book_id INTEGER NOT NULL,
             user_name TEXT NOT NULL,
             comment_text TEXT NOT NULL,
@@ -153,24 +148,21 @@ def init_db():
         )
     ''')
 
-    # Migration check for existing databases
-    cursor.execute("PRAGMA table_info(comments)")
-    comment_cols = [row['name'] for row in cursor.fetchall()]
+    comment_cols = db.column_names('comments')
     if 'likes' not in comment_cols:
-        cursor.execute("ALTER TABLE comments ADD COLUMN likes INTEGER DEFAULT 0")
+        db.add_column('comments', 'likes INTEGER DEFAULT 0')
     if 'replies_json' not in comment_cols:
-        cursor.execute("ALTER TABLE comments ADD COLUMN replies_json TEXT DEFAULT '[]'")
+        db.add_column('comments', "replies_json TEXT DEFAULT '[]'")
 
-    cursor.execute("PRAGMA table_info(books)")
-    book_cols = [row['name'] for row in cursor.fetchall()]
+    book_cols = db.column_names('books')
     if 'stock' not in book_cols:
-        cursor.execute("ALTER TABLE books ADD COLUMN stock INTEGER DEFAULT 10")
+        db.add_column('books', 'stock INTEGER DEFAULT 10')
     if 'description' not in book_cols:
-        cursor.execute("ALTER TABLE books ADD COLUMN description TEXT")
+        db.add_column('books', 'description TEXT')
 
-    cursor.execute('''
+    db.execute(f'''
         CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {auto_id()},
             chat_session_id TEXT NOT NULL,
             sender TEXT NOT NULL,
             user_name TEXT NOT NULL,
@@ -180,21 +172,19 @@ def init_db():
         )
     ''')
 
-    # Check and add is_read column if table was created previously without it
-    cursor.execute("PRAGMA table_info(chat_messages)")
-    columns = [row['name'] for row in cursor.fetchall()]
-    if 'is_read' not in columns:
-        cursor.execute("ALTER TABLE chat_messages ADD COLUMN is_read INTEGER DEFAULT 0")
+    chat_cols = db.column_names('chat_messages')
+    if 'is_read' not in chat_cols:
+        db.add_column('chat_messages', 'is_read INTEGER DEFAULT 0')
 
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('store_address', "Buxoro shahar, Mustaqillik ko'chasi 12"))
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('maps_url', "https://maps.google.com/?q=Bukhara"))
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('phone_number', "+998 90 123-45-67"))
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('email_address', "info@iqro.uz"))
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('admin_username', "admin"))
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('admin_password', "123"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('store_address', "Buxoro shahar, Mustaqillik ko'chasi 12"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('maps_url', "https://maps.google.com/?q=Bukhara"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('phone_number', "+998 90 123-45-67"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('email_address', "info@iqro.uz"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('admin_username', "admin"))
+    db.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('admin_password', "123"))
 
-    cursor.execute('SELECT COUNT(*) as count FROM books')
-    if cursor.fetchone()['count'] == 0:
+    cur = db.execute('SELECT COUNT(*) as count FROM books')
+    if cur.fetchone()['count'] == 0:
         initial_books = [
             ("O'tkan Kunlar", "Abdulla Qodiriy", 45000, None, "badiiy", "bestseller", 4.9, "Top-1", "primary", "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80", 10, "O'zbek adabiyotining durdona asari. XIX asr o'rtalaridagi Toshkent va Marg'ilon hayotini hamda Otabek va Kumushning fojiali sevgi qissasini yoritadi."),
             ("Atom Odatlari", "Djeyms Klir", 65000, 75000, "biznes", "bestseller", 5.0, "Hit", "primary", "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&auto=format&fit=crop&q=80", 10, "Kichik o'zgarishlar orqali katta natijalarga erishish va yaxshi odatlarni shakllantirish bo'yicha dunyo bestselleri."),
@@ -203,18 +193,18 @@ def init_db():
             ("Saodat Asri Qissalari (4 jildlik)", "Lutfiy Qozonchi", 220000, None, "psixologiya", "bestseller", 5.0, "Mashhur", "primary", "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&auto=format&fit=crop&q=80", 10, "Payg'ambarimiz (s.a.v.) va ularning sahobiylari hayoti va saodat asri voqealarini aks ettiruvchi ta'sirli asar."),
             ("Alkimyogar", "Paulo Koelo", 42000, None, "badiiy", "new", 4.8, "Yangi", "success", "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&auto=format&fit=crop&q=80", 10, "O'z taqdirini qidirayotgan va orzulari ortidan ketgan Santyago ismli cho'pon yigitning ma'naviy va ilhomlantiruvchi sarguzashtlari.")
         ]
-        cursor.executemany('''
+        db.executemany('''
             INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock, description)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', initial_books)
 
-        cursor.execute('''
+        db.execute('''
             INSERT INTO comments (book_id, user_name, comment_text, created_date)
             VALUES (1, 'Sardor', 'Juda ham ajoyib asar, har bir kitobxon o''qishi shart!', '2026-07-20')
         ''')
 
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
 
 init_db()
 
@@ -236,12 +226,11 @@ def uploaded_file(filename):
 # Settings APIs
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT key, value FROM settings')
-    rows = cursor.fetchall()
+    db = DB()
+    cur = db.execute('SELECT key, value FROM settings')
+    rows = cur.fetchall()
     settings_dict = {row['key']: row['value'] for row in rows}
-    conn.close()
+    db.close()
     return jsonify({"success": True, "settings": settings_dict})
 
 @app.route('/api/admin/settings', methods=['POST'])
@@ -253,19 +242,18 @@ def update_settings():
     phone_number = data.get('phone_number', '').strip()
     email_address = data.get('email_address', '').strip()
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
     if store_address:
-        cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('store_address', store_address))
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('store_address', store_address))
     if maps_url:
-        cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('maps_url', maps_url))
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('maps_url', maps_url))
     if phone_number:
-        cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('phone_number', phone_number))
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('phone_number', phone_number))
     if email_address:
-        cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('email_address', email_address))
+        db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('email_address', email_address))
 
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
 
     return jsonify({"success": True, "message": "Do'kon ma'lumotlari bazada yangilandi!"})
 
@@ -277,16 +265,15 @@ def admin_login():
     username = data.get('username')
     password = data.get('password')
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT value FROM settings WHERE key = ?', ('admin_username',))
-    u_row = cursor.fetchone()
+    db = DB()
+    cur = db.execute('SELECT value FROM settings WHERE key = ?', ('admin_username',))
+    u_row = cur.fetchone()
     db_username = u_row['value'] if u_row else ADMIN_CREDENTIALS['username']
 
-    cursor.execute('SELECT value FROM settings WHERE key = ?', ('admin_password',))
-    p_row = cursor.fetchone()
+    cur = db.execute('SELECT value FROM settings WHERE key = ?', ('admin_password',))
+    p_row = cur.fetchone()
     db_password = p_row['value'] if p_row else ADMIN_CREDENTIALS['password']
-    conn.close()
+    db.close()
 
     req_username = str(username).strip() if username is not None else ''
     req_password = str(password).strip() if password is not None else ''
@@ -310,20 +297,19 @@ def change_admin_credentials():
     if not new_username or not new_password or not old_password:
         return jsonify({"success": False, "message": "Barcha maydonlarni to'ldiring!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT value FROM settings WHERE key = ?', ('admin_password',))
-    p_row = cursor.fetchone()
+    db = DB()
+    cur = db.execute('SELECT value FROM settings WHERE key = ?', ('admin_password',))
+    p_row = cur.fetchone()
     curr_password = p_row['value'] if p_row else ADMIN_CREDENTIALS['password']
 
     if old_password != curr_password:
-        conn.close()
+        db.close()
         return jsonify({"success": False, "message": "Eski parolingiz noto'g'ri!"}), 400
 
-    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('admin_username', new_username))
-    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('admin_password', new_password))
-    conn.commit()
-    conn.close()
+    db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('admin_username', new_username))
+    db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('admin_password', new_password))
+    db.commit()
+    db.close()
 
     return jsonify({"success": True, "message": "Admin login va paroli muvaffaqiyatli o'zgartirildi!"})
 
@@ -350,19 +336,18 @@ def admin_logout():
 @app.route('/api/admin/chat-sessions', methods=['GET'])
 @admin_required
 def get_chat_sessions():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    # Barcha mavjud session_id lar tartibini olamiz (Mijoz #1, Mijoz #2 raqamlash uchun)
-    cursor.execute('''
+    db = DB()
+
+    cur = db.execute('''
         SELECT chat_session_id, MIN(id) as first_id
         FROM chat_messages
         GROUP BY chat_session_id
         ORDER BY first_id ASC
     ''')
-    session_order = [r['chat_session_id'] for r in cursor.fetchall()]
+    session_order = [r['chat_session_id'] for r in cur.fetchall()]
     session_index_map = {sid: idx + 1 for idx, sid in enumerate(session_order)}
 
-    cursor.execute('''
+    cur = db.execute('''
         SELECT 
             chat_session_id, 
             user_name, 
@@ -373,44 +358,42 @@ def get_chat_sessions():
         GROUP BY chat_session_id 
         ORDER BY last_time DESC
     ''')
-    rows = cursor.fetchall()
+    rows = cur.fetchall()
     sessions = []
     for r in rows:
         item = dict(r)
-        # Agar user_name 'Mijoz' bo'lsa yoki 'Mijoz #' bilan boshlanmagan anonim bo'lsa
         if item['user_name'] == 'Mijoz' or not item['user_name']:
             num = session_index_map.get(item['chat_session_id'], 1)
             item['user_name'] = f"Mijoz #{num}"
         sessions.append(item)
 
-    cursor.execute("SELECT COUNT(*) as total_unread FROM chat_messages WHERE sender = 'user' AND is_read = 0")
-    total_unread = cursor.fetchone()['total_unread']
+    cur = db.execute("SELECT COUNT(*) as total_unread FROM chat_messages WHERE sender = 'user' AND is_read = 0")
+    total_unread = cur.fetchone()['total_unread']
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "sessions": sessions, "total_unread": total_unread})
 
 @app.route('/api/admin/chat-history', methods=['GET'])
 @admin_required
 def get_admin_chat_history():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('''
+    cur = db.execute('''
         SELECT chat_session_id, MIN(id) as first_id
         FROM chat_messages
         GROUP BY chat_session_id
         ORDER BY first_id ASC
     ''')
-    session_order = [r['chat_session_id'] for r in cursor.fetchall()]
+    session_order = [r['chat_session_id'] for r in cur.fetchall()]
     session_index_map = {sid: idx + 1 for idx, sid in enumerate(session_order)}
 
-    cursor.execute('''
+    cur = db.execute('''
         SELECT chat_session_id, user_name, sender, message, timestamp, is_read
         FROM chat_messages ORDER BY id ASC
     ''')
-    rows = cursor.fetchall()
-    conn.close()
-    
+    rows = cur.fetchall()
+    db.close()
+
     sessions = {}
     for r in rows:
         sid = r['chat_session_id']
@@ -436,42 +419,38 @@ def get_admin_chat_history():
 @app.route('/api/admin/chat-sessions/<session_id>', methods=['DELETE'])
 @admin_required
 def delete_chat_session(session_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM chat_messages WHERE chat_session_id = ?', (session_id,))
-    conn.commit()
-    conn.close()
+    db = DB()
+    db.execute('DELETE FROM chat_messages WHERE chat_session_id = ?', (session_id,))
+    db.commit()
+    db.close()
     return jsonify({"success": True, "message": "Chat suhbati muvaffaqiyatli o'chirildi!"})
 
 # Chat xabarlarni o'qilgan deb belgilash
 @app.route('/api/chat/messages/<session_id>', methods=['GET'])
 def get_chat_history(session_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    # Admin kirganda, ushbu sessiyadagi mijoz xabarlarini 'is_read = 1' qilamiz
-    cursor.execute("UPDATE chat_messages SET is_read = 1 WHERE chat_session_id = ? AND sender = 'user'", (session_id,))
-    conn.commit()
+    db.execute("UPDATE chat_messages SET is_read = 1 WHERE chat_session_id = ? AND sender = 'user'", (session_id,))
+    db.commit()
 
-    cursor.execute('SELECT * FROM chat_messages WHERE chat_session_id = ? ORDER BY id ASC', (session_id,))
-    rows = cursor.fetchall()
+    cur = db.execute('SELECT * FROM chat_messages WHERE chat_session_id = ? ORDER BY id ASC', (session_id,))
+    rows = cur.fetchall()
     messages = [dict(r) for r in rows]
 
-    # Mijoz raqamini aniqlaymiz
-    cursor.execute('''
+    cur = db.execute('''
         SELECT chat_session_id, MIN(id) as first_id
         FROM chat_messages
         GROUP BY chat_session_id
         ORDER BY first_id ASC
     ''')
-    session_order = [r['chat_session_id'] for r in cursor.fetchall()]
+    session_order = [r['chat_session_id'] for r in cur.fetchall()]
     num = session_order.index(session_id) + 1 if session_id in session_order else 1
 
     for msg in messages:
         if msg['user_name'] == 'Mijoz' or not msg['user_name']:
             msg['user_name'] = f"Mijoz #{num}"
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "messages": messages})
 
 # SOCKET.IO REAL-TIME CHAT EVENTS
@@ -496,32 +475,29 @@ def handle_send_message(data):
     if not session_id or not message_text:
         return
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
+    db = DB()
+    db.execute('''
         INSERT INTO chat_messages (chat_session_id, sender, user_name, message, timestamp, is_read)
         VALUES (?, ?, ?, ?, ?, 0)
     ''', (session_id, sender, user_name, message_text, current_time))
-    conn.commit()
+    db.commit()
 
-    # Sessiyalar bo'yicha Mijoz #N tartib raqamini aniqlaymiz
-    cursor.execute('''
+    cur = db.execute('''
         SELECT chat_session_id, MIN(id) as first_id
         FROM chat_messages
         GROUP BY chat_session_id
         ORDER BY first_id ASC
     ''')
-    session_order = [r['chat_session_id'] for r in cursor.fetchall()]
+    session_order = [r['chat_session_id'] for r in cur.fetchall()]
     num = session_order.index(session_id) + 1 if session_id in session_order else 1
 
     formatted_name = user_name
     if user_name == 'Mijoz' or not user_name:
         formatted_name = f"Mijoz #{num}"
 
-    # Umumiy o'qilmaganlar sonini olamiz
-    cursor.execute("SELECT COUNT(*) as total_unread FROM chat_messages WHERE sender = 'user' AND is_read = 0")
-    total_unread = cursor.fetchone()['total_unread']
-    conn.close()
+    cur = db.execute("SELECT COUNT(*) as total_unread FROM chat_messages WHERE sender = 'user' AND is_read = 0")
+    total_unread = cur.fetchone()['total_unread']
+    db.close()
 
     msg_payload = {
         "session_id": session_id,
@@ -560,8 +536,7 @@ def get_books():
     book_type = request.args.get('type', 'all')
     search = request.args.get('search', '').lower()
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
     query = 'SELECT * FROM books WHERE 1=1'
     params = []
@@ -580,14 +555,14 @@ def get_books():
         query += ' AND (LOWER(title) LIKE ? OR LOWER(author) LIKE ?)'
         params.extend([f'%{search}%', f'%{search}%'])
 
-    cursor.execute(query, params)
-    books_rows = cursor.fetchall()
+    cur = db.execute(query, params)
+    books_rows = cur.fetchall()
 
     books_list = []
     for row in books_rows:
         b = dict(row)
-        cursor.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (b['id'],))
-        raw_comments = cursor.fetchall()
+        cur = db.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (b['id'],))
+        raw_comments = cur.fetchall()
         comments = []
         for c in raw_comments:
             c_dict = dict(c)
@@ -599,7 +574,7 @@ def get_books():
         b['comments'] = comments
         books_list.append(b)
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "count": len(books_list), "books": books_list})
 
 # Izoh qo'shish
@@ -615,18 +590,17 @@ def add_comment(book_id):
     if not text:
         return jsonify({"success": False, "message": "Izoh matnini kiriting!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
     today_str = str(date.today())
-    cursor.execute('''
+    db.execute('''
         INSERT INTO comments (book_id, user_name, comment_text, likes, replies_json, created_date)
         VALUES (?, ?, ?, 0, '[]', ?)
     ''', (book_id, user_name, text, today_str))
-    conn.commit()
+    db.commit()
 
-    cursor.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (book_id,))
-    raw_comments = cursor.fetchall()
+    cur = db.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (book_id,))
+    raw_comments = cur.fetchall()
     updated_comments = []
     for c in raw_comments:
         c_dict = dict(c)
@@ -636,26 +610,25 @@ def add_comment(book_id):
             c_dict['replies'] = []
         updated_comments.append(c_dict)
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "message": "Izohingiz muvaffaqiyatli saqlandi!", "comments": updated_comments})
 
 # Izohga like bosish / olib tashlash API
 @app.route('/api/comments/<int:comment_id>/like', methods=['POST'])
 def like_comment(comment_id):
     data = request.get_json() or {}
-    action = data.get('action', 'like') # 'like' yoki 'unlike'
+    action = data.get('action', 'like')
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
     if action == 'unlike':
-        cursor.execute('UPDATE comments SET likes = MAX(0, COALESCE(likes, 0) - 1) WHERE id = ?', (comment_id,))
+        db.execute('UPDATE comments SET likes = MAX(0, COALESCE(likes, 0) - 1) WHERE id = ?', (comment_id,))
     else:
-        cursor.execute('UPDATE comments SET likes = COALESCE(likes, 0) + 1 WHERE id = ?', (comment_id,))
-    conn.commit()
+        db.execute('UPDATE comments SET likes = COALESCE(likes, 0) + 1 WHERE id = ?', (comment_id,))
+    db.commit()
 
-    cursor.execute('SELECT id, book_id, likes FROM comments WHERE id = ?', (comment_id,))
-    comment = cursor.fetchone()
-    conn.close()
+    cur = db.execute('SELECT id, book_id, likes FROM comments WHERE id = ?', (comment_id,))
+    comment = cur.fetchone()
+    db.close()
 
     if comment:
         return jsonify({"success": True, "likes": comment['likes'], "book_id": comment['book_id']})
@@ -671,13 +644,12 @@ def reply_comment(comment_id):
     if not text:
         return jsonify({"success": False, "message": "Javob matnini kiriting!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('SELECT replies_json, book_id FROM comments WHERE id = ?', (comment_id,))
-    row = cursor.fetchone()
+    cur = db.execute('SELECT replies_json, book_id FROM comments WHERE id = ?', (comment_id,))
+    row = cur.fetchone()
     if not row:
-        conn.close()
+        db.close()
         return jsonify({"success": False, "message": "Izoh topilmadi!"}), 404
 
     try:
@@ -692,12 +664,12 @@ def reply_comment(comment_id):
     }
     replies.append(new_reply)
 
-    cursor.execute('UPDATE comments SET replies_json = ? WHERE id = ?', (json.dumps(replies, ensure_ascii=False), comment_id))
-    conn.commit()
+    db.execute('UPDATE comments SET replies_json = ? WHERE id = ?', (json.dumps(replies, ensure_ascii=False), comment_id))
+    db.commit()
 
     book_id = row['book_id']
-    cursor.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (book_id,))
-    raw_comments = cursor.fetchall()
+    cur = db.execute('SELECT id, user_name as user, comment_text as text, likes, replies_json, created_date as date FROM comments WHERE book_id = ? ORDER BY id DESC', (book_id,))
+    raw_comments = cur.fetchall()
     updated_comments = []
     for c in raw_comments:
         c_dict = dict(c)
@@ -707,7 +679,7 @@ def reply_comment(comment_id):
             c_dict['replies'] = []
         updated_comments.append(c_dict)
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "message": "Javobingiz qo'shildi!", "comments": updated_comments})
 
 # Book Rating API (Dynamic Average Rating)
@@ -719,28 +691,26 @@ def rate_book(book_id):
     if new_rating < 1 or new_rating > 5:
         return jsonify({"success": False, "message": "Baho 1 va 5 oraliqida bo'lishi kerak!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('SELECT rating FROM books WHERE id = ?', (book_id,))
-    row = cursor.fetchone()
+    cur = db.execute('SELECT rating FROM books WHERE id = ?', (book_id,))
+    row = cur.fetchone()
     if not row:
-        conn.close()
+        db.close()
         return jsonify({"success": False, "message": "Kitob topilmadi!"}), 404
 
-    # Save to rating settings key
     rates_key = f"book_ratings_{book_id}"
-    cursor.execute('SELECT value FROM settings WHERE key = ?', (rates_key,))
-    r_row = cursor.fetchone()
+    cur = db.execute('SELECT value FROM settings WHERE key = ?', (rates_key,))
+    r_row = cur.fetchone()
     ratings_list = json.loads(r_row['value']) if r_row else [float(row['rating'] or 5.0)]
 
     ratings_list.append(new_rating)
     avg_rating = round(sum(ratings_list) / len(ratings_list), 1)
 
-    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (rates_key, json.dumps(ratings_list)))
-    cursor.execute('UPDATE books SET rating = ? WHERE id = ?', (avg_rating, book_id))
-    conn.commit()
-    conn.close()
+    db.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (rates_key, json.dumps(ratings_list)))
+    db.execute('UPDATE books SET rating = ? WHERE id = ?', (avg_rating, book_id))
+    db.commit()
+    db.close()
 
     return jsonify({
         "success": True,
@@ -763,10 +733,9 @@ def add_book():
     if not title or not author or not price:
         return jsonify({"success": False, "message": "Sarlavha, muallif va narx shart!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('''
+    new_id = db.insert_and_get_id('''
         INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock, description)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
@@ -784,9 +753,7 @@ def add_book():
         description
     ))
 
-    conn.commit()
-    new_id = cursor.lastrowid
-    conn.close()
+    db.close()
 
     return jsonify({"success": True, "message": "Yangi kitob bazaga qo'shildi!", "id": new_id})
 
@@ -795,10 +762,9 @@ def add_book():
 @admin_required
 def update_book(book_id):
     data = request.get_json() or {}
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('''
+    db.execute('''
         UPDATE books SET
             title = ?,
             author = ?,
@@ -823,39 +789,37 @@ def update_book(book_id):
         book_id
     ))
 
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
     return jsonify({"success": True, "message": "Kitob va mavjud soni (zaxirasi) bazada yangilandi!"})
 
 # Admin API: Kitobni o'chirish
 @app.route('/api/admin/books/<int:book_id>', methods=['DELETE'])
 @admin_required
 def delete_book(book_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM books WHERE id = ?', (book_id,))
-    cursor.execute('DELETE FROM comments WHERE book_id = ?', (book_id,))
-    conn.commit()
-    conn.close()
+    db = DB()
+    db.execute('DELETE FROM books WHERE id = ?', (book_id,))
+    db.execute('DELETE FROM comments WHERE book_id = ?', (book_id,))
+    db.commit()
+    db.close()
     return jsonify({"success": True, "message": "Kitob bazadan o'chirildi!"})
 
 # Admin API: Buyurtmalar
 @app.route('/api/admin/orders', methods=['GET'])
 @admin_required
 def get_orders():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM orders ORDER BY order_id DESC')
-    rows = cursor.fetchall()
+    db = DB()
+    cur = db.execute('SELECT * FROM orders ORDER BY order_id DESC')
+    rows = cur.fetchall()
     orders_list = []
     for r in rows:
         o = dict(r)
         o['items'] = json.loads(o['items_json'])
         orders_list.append(o)
-    conn.close()
+    db.close()
     return jsonify({"success": True, "orders": orders_list})
 
-# Admin API: Buyurtma statusi (Yig'ilmoqda statusiga o'tganda sonidan ayirish)
+# Admin API: Buyurtma statusi
 @app.route('/api/admin/orders/<int:order_id>/status', methods=['PUT'])
 @app.route('/api/admin/orders/update-status', methods=['POST'])
 @admin_required
@@ -868,16 +832,14 @@ def update_order_status(order_id=None):
     if not order_id or not new_status:
         return jsonify({"success": False, "message": "Order ID va yangi status kiritilmadi!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('SELECT status, items_json FROM orders WHERE order_id = ?', (order_id,))
-    row = cursor.fetchone()
+    cur = db.execute('SELECT status, items_json FROM orders WHERE order_id = ?', (order_id,))
+    row = cur.fetchone()
     old_status = row['status'] if row else None
 
-    cursor.execute('UPDATE orders SET status = ? WHERE order_id = ?', (new_status, order_id))
-    
-    # Agar status 'Yig'ilmoqda'ga o'zgartirilsa va oldin 'Yig'ilmoqda' bo'lmagan bo'lsa -> Zaxiradan ayiramiz
+    db.execute('UPDATE orders SET status = ? WHERE order_id = ?', (new_status, order_id))
+
     if new_status == "Yig'ilmoqda" and old_status != "Yig'ilmoqda" and row:
         try:
             items = json.loads(row['items_json'] or '[]')
@@ -885,12 +847,12 @@ def update_order_status(order_id=None):
                 title = item.get('title')
                 qty = int(item.get('quantity', 1))
                 if title:
-                    cursor.execute('UPDATE books SET stock = MAX(0, stock - ?) WHERE title = ?', (qty, title))
+                    db.execute('UPDATE books SET stock = MAX(0, stock - ?) WHERE title = ?', (qty, title))
         except Exception as e:
             print("Error deducting stock:", e)
 
-    conn.commit()
-    conn.close()
+    db.commit()
+    db.close()
 
     try:
         socketio.emit('order_status_updated', {
@@ -906,11 +868,10 @@ def update_order_status(order_id=None):
 @app.route('/api/admin/orders/<int:order_id>', methods=['DELETE'])
 @admin_required
 def delete_order(order_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM orders WHERE order_id = ?', (order_id,))
-    conn.commit()
-    conn.close()
+    db = DB()
+    db.execute('DELETE FROM orders WHERE order_id = ?', (order_id,))
+    db.commit()
+    db.close()
     return jsonify({"success": True, "message": "Buyurtma bazadan o'chirildi!"})
 
 # User Track API
@@ -921,21 +882,20 @@ def track_orders():
     if not phone and not email:
         return jsonify({"success": True, "orders": []})
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
     if phone and email:
-        cursor.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (phone, email))
+        cur = db.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (phone, email))
     else:
         q_val = phone or email
-        cursor.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (q_val, q_val))
+        cur = db.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (q_val, q_val))
 
-    rows = cursor.fetchall()
+    rows = cur.fetchall()
     orders_list = []
     for r in rows:
         o = dict(r)
         o['items'] = json.loads(o['items_json'] or '[]')
         orders_list.append(o)
-    conn.close()
+    db.close()
     return jsonify({"success": True, "orders": orders_list})
 
 # User Favorites API
@@ -948,25 +908,24 @@ def toggle_favorite():
     if not email:
         return jsonify({"success": False, "message": "Avval tizimga kiring!"}), 401
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('SELECT * FROM favorites WHERE user_email = ? AND book_id = ?', (email, book_id))
-    existing = cursor.fetchone()
+    cur = db.execute('SELECT * FROM favorites WHERE user_email = ? AND book_id = ?', (email, book_id))
+    existing = cur.fetchone()
 
     if existing:
-        cursor.execute('DELETE FROM favorites WHERE user_email = ? AND book_id = ?', (email, book_id))
+        db.execute('DELETE FROM favorites WHERE user_email = ? AND book_id = ?', (email, book_id))
         msg = "Kitob saralanganlardan olib tashlandi!"
     else:
-        cursor.execute('INSERT INTO favorites (user_email, book_id) VALUES (?, ?)', (email, book_id))
+        db.execute('INSERT INTO favorites (user_email, book_id) VALUES (?, ?)', (email, book_id))
         msg = "Kitob profil saralanganlariga saqlandi!"
 
-    conn.commit()
+    db.commit()
 
-    cursor.execute('SELECT book_id FROM favorites WHERE user_email = ?', (email,))
-    fav_ids = [row['book_id'] for row in cursor.fetchall()]
+    cur = db.execute('SELECT book_id FROM favorites WHERE user_email = ?', (email,))
+    fav_ids = [row['book_id'] for row in cur.fetchall()]
 
-    conn.close()
+    db.close()
     return jsonify({"success": True, "message": msg, "favorites": fav_ids})
 
 # User Login API
@@ -979,28 +938,27 @@ def login():
     if not email or not password:
         return jsonify({"success": False, "message": "Email va parolni kiriting!"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    db = DB()
 
-    cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-    user_row = cursor.fetchone()
+    cur = db.execute('SELECT * FROM users WHERE email = ?', (email,))
+    user_row = cur.fetchone()
 
     if user_row:
         if user_row['password'] == password:
             user_data = dict(user_row)
         else:
-            conn.close()
+            db.close()
             return jsonify({"success": False, "message": "Parol noto'g'ri!"}), 400
     else:
         user_name = email.split('@')[0].capitalize()
-        cursor.execute('INSERT INTO users (name, email, password, phone) VALUES (?, ?, ?, ?)', (user_name, email, password, "+998 90 000-00-00"))
-        conn.commit()
+        db.execute('INSERT INTO users (name, email, password, phone) VALUES (?, ?, ?, ?)', (user_name, email, password, "+998 90 000-00-00"))
+        db.commit()
         user_data = {"name": user_name, "email": email, "phone": "+998 90 000-00-00"}
 
-    cursor.execute('SELECT book_id FROM favorites WHERE user_email = ?', (email,))
-    fav_ids = [r['book_id'] for r in cursor.fetchall()]
+    cur = db.execute('SELECT book_id FROM favorites WHERE user_email = ?', (email,))
+    fav_ids = [r['book_id'] for r in cur.fetchall()]
 
-    conn.close()
+    db.close()
     return jsonify({
         "success": True,
         "message": "Tizimga kirdingiz!",
@@ -1032,17 +990,14 @@ def create_order():
         total_price = sum(int(item.get('price', 0)) * int(item.get('quantity', 1)) for item in items)
         items_json = json.dumps(items)
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        db = DB()
 
-        cursor.execute('''
+        order_id = db.insert_and_get_id('''
             INSERT INTO orders (customer_name, phone, address, payment_method, items_json, total_price, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (name, phone, address, payment_method, items_json, total_price, "Qabul qilindi"))
+        ''', (name, phone, address, payment_method, items_json, total_price, "Qabul qilindi"), id_column='order_id')
 
-        conn.commit()
-        order_id = cursor.lastrowid
-        conn.close()
+        db.close()
 
         order_payload = {
             "order_id": order_id,
@@ -1058,7 +1013,7 @@ def create_order():
 
         try:
             socketio.emit('new_order', order_payload, room='admin_room')
-            socketio.emit('new_order', order_payload)  # broadcast fallback
+            socketio.emit('new_order', order_payload)
         except Exception as e:
             print("Socket order emit error:", e)
 
