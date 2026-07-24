@@ -937,23 +937,168 @@
             display: block;
         }
 
-        /* Responsive Layout */
+        /* Mobile Toggle Button */
+        .mobile-toggle-btn {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: white;
+            width: 42px;
+            height: 42px;
+            border-radius: var(--radius-sm);
+            font-size: 1.2rem;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .mobile-toggle-btn:hover {
+            background: var(--primary);
+        }
+
+        /* Overlay for Mobile Sidebar */
+        .sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1040;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-backdrop.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Responsive Layout & Mobile Adaptations */
         @media (max-width: 992px) {
+            .mobile-toggle-btn {
+                display: flex;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
+                z-index: 1050;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
             }
+
             .sidebar.mobile-open {
                 transform: translateX(0);
             }
+
             .main-content {
                 margin-left: 0;
-                padding: 24px 16px;
+                padding: 16px 12px;
             }
+
+            .top-navbar {
+                padding: 12px 16px;
+                gap: 12px;
+            }
+
+            .header-title h1 {
+                font-size: 1.25rem;
+            }
+
+            .header-title p {
+                font-size: 0.78rem;
+            }
+
+            .user-profile-badge {
+                padding: 4px 10px;
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 12px;
+            }
+
+            .stat-card {
+                padding: 14px;
+                gap: 12px;
+            }
+
+            .stat-icon {
+                width: 42px;
+                height: 42px;
+                font-size: 1.1rem;
+            }
+
+            .stat-details h3 {
+                font-size: 0.78rem;
+            }
+
+            .stat-details .value {
+                font-size: 1.3rem;
+            }
+
+            .controls-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                max-width: 100%;
+            }
+
+            .btn-add {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .table-card {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 650px;
+            }
+
+            th, td {
+                padding: 12px 14px;
+                font-size: 0.84rem;
+            }
+
             .chat-container {
                 grid-template-columns: 1fr;
+                height: auto;
+                min-height: 520px;
             }
+
             .chat-sessions-sidebar {
-                display: none;
+                display: flex;
+                max-height: 220px;
+            }
+
+            .chat-main-area {
+                min-height: 380px;
+            }
+
+            .modal-box {
+                width: 94%;
+                padding: 20px 16px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .top-navbar {
+                flex-wrap: wrap;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -991,6 +1136,9 @@
             </form>
         </div>
     </div>
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
 
     <!-- MAIN ADMIN DASHBOARD -->
     <div class="admin-dashboard">
@@ -1053,9 +1201,14 @@
             
             <!-- TOP NAVBAR -->
             <div class="top-navbar">
-                <div class="header-title">
-                    <h1 id="pageTitle">Boshqaruv Paneli</h1>
-                    <p id="pageSubTitle">Platformangizning umumiy holati va statistikasi</p>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <button class="mobile-toggle-btn" id="mobileToggleBtn" onclick="toggleMobileSidebar()" aria-label="Menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="header-title">
+                        <h1 id="pageTitle">Boshqaruv Paneli</h1>
+                        <p id="pageSubTitle">Platformangizning umumiy holati va statistikasi</p>
+                    </div>
                 </div>
                 <div class="user-profile-badge">
                     <div class="avatar-circle">A</div>
@@ -1531,6 +1684,19 @@
             }
         }
 
+        // Mobile Sidebar Handlers
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('mobile-open');
+            backdrop.classList.toggle('active');
+        }
+
+        function closeMobileSidebar() {
+            document.getElementById('sidebar').classList.remove('mobile-open');
+            document.getElementById('sidebarBackdrop').classList.remove('active');
+        }
+
         // Tab Switching Logic
         function switchTab(tabId, el) {
             document.querySelectorAll('.menu-link').forEach(link => link.classList.remove('active'));
@@ -1552,6 +1718,8 @@
                 document.getElementById('pageTitle').innerText = titles[tabId][0];
                 document.getElementById('pageSubTitle').innerText = titles[tabId][1];
             }
+
+            closeMobileSidebar();
         }
 
         // Load all data
