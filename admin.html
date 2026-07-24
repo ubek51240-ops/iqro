@@ -2047,7 +2047,35 @@
                 console.log("Backend offline, loading local orders fallback");
             }
 
-            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            let localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            if (localOrders.length === 0) {
+                localOrders = [
+                    {
+                        order_id: 4407,
+                        customer_name: "Azizbek",
+                        phone: "+998 90 123 45 67",
+                        address: "Toshkent shahri, Chilonzor tumani",
+                        payment_method: "Naqd pul",
+                        items: [{ title: "Atom Odatlari", quantity: 1, price: 65000 }],
+                        total_price: 65000,
+                        status: "Yig'ilmoqda",
+                        created_at: new Date().toLocaleString()
+                    },
+                    {
+                        order_id: 2721,
+                        customer_name: "Madina",
+                        phone: "+998 93 987 65 43",
+                        address: "Buxoro shahri, Mustaqillik ko'chasi",
+                        payment_method: "Plastik karta (Click/Payme)",
+                        items: [{ title: "Boy Ota, Kambag'al Ota", quantity: 2, price: 55000 }],
+                        total_price: 110000,
+                        status: "Qabul qilindi",
+                        created_at: new Date().toLocaleString()
+                    }
+                ];
+                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+            }
+
             allOrders = localOrders;
             renderOrders(allOrders);
             document.getElementById('statOrdersCount').innerText = allOrders.length;
@@ -2431,6 +2459,20 @@
                     }
                 }
             }
+
+            if (Object.keys(chatSessions).length === 0) {
+                const demoSid = 'demo_session_1';
+                const demoMsgs = [
+                    { sender: 'user', user_name: 'Jasurbek', message: 'Assalomu alaykum! Kitoblar yetkazib berish necha kun davom etadi?', timestamp: '10:30' },
+                    { sender: 'admin', user_name: 'Admin', message: 'Vaalaykum assalom! Toshkent shahri ichida 24 soatda yetkaziladi.', timestamp: '10:32' }
+                ];
+                localStorage.setItem(`iqro_chat_msgs_${demoSid}`, JSON.stringify(demoMsgs));
+                chatSessions[demoSid] = {
+                    user_name: 'Jasurbek',
+                    messages: demoMsgs
+                };
+            }
+
             renderChatSessions();
         }
 
