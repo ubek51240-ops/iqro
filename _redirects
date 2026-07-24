@@ -1,2 +1,10 @@
+# Admin panel
 /admin /admin.html 200
 /admin/ /admin.html 200
+
+# Statik versiyalardan asosiy sahifaga yo'naltirish
+/iqro.html / 301!
+/original_iqro.html / 301!
+
+# SPA catch-all - barcha yo'llar index.html ga yo'naltiriladi
+/* /index.html 200

@@ -2025,6 +2025,14 @@
                 const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
                     headers: getAuthHeaders()
                 });
+                if (!res.ok) {
+                    if (res.status === 403) {
+                        console.log("Auth token expired, redirecting to login");
+                        handleLogout();
+                        return;
+                    }
+                    throw new Error(`Server xatosi: ${res.status}`);
+                }
                 const data = await res.json();
                 if (data.success) {
                     allOrders = data.orders || [];

@@ -37,16 +37,15 @@ ALLOWED_ORIGINS = [
     'null'
 ]
 
-CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS)
+CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS, expose_headers=['Content-Type', 'Authorization'])
 
 @app.after_request
 def add_cors_headers(response):
     origin = request.headers.get('Origin', '')
-    if origin in ALLOWED_ORIGINS or not origin:
-        response.headers['Access-Control-Allow-Origin'] = origin or '*'
-    elif '.netlify.app' in origin:
+    if not origin:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+    elif origin in ALLOWED_ORIGINS or '.netlify.app' in origin:
         response.headers['Access-Control-Allow-Origin'] = origin
-        ALLOWED_ORIGINS.append(origin)
     else:
         response.headers['Access-Control-Allow-Origin'] = 'https://iqrouzb.netlify.app'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
@@ -970,9 +969,16 @@ def login():
         }
     })
 
+# Health check
+@app.route('/api/health', methods=['GET', 'OPTIONS'])
+def health_check():
+    return jsonify({"status": "ok", "message": "Server ishlayapti"})
+
 # Order Create API
-@app.route('/api/order', methods=['POST'])
+@app.route('/api/order', methods=['POST', 'OPTIONS'])
 def create_order():
+    if request.method == 'OPTIONS':
+        return '', 204
     try:
         data = request.get_json() or {}
         items = data.get('items', [])
@@ -988,7 +994,7 @@ def create_order():
             return jsonify({"success": False, "message": "Ism, telefon va manzilni kiriting!"}), 400
 
         total_price = sum(int(item.get('price', 0)) * int(item.get('quantity', 1)) for item in items)
-        items_json = json.dumps(items)
+        items_json = json.dumps(items, ensure_ascii=False)
 
         db = DB()
 

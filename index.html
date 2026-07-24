@@ -2199,6 +2199,15 @@
             document.getElementById('overlay').classList.add('active');
         }
 
+        // Warm up server before placing order (Render cold start uchun)
+        async function warmUpServer() {
+            try {
+                await fetch(`${API_BASE_URL}/api/health`, { signal: AbortSignal.timeout(5000) });
+            } catch (e) {
+                // ignore - server warming up
+            }
+        }
+
         async function handleCheckoutSubmit(event) {
             event.preventDefault();
             const name = document.getElementById('orderName').value.trim();
@@ -2218,13 +2227,19 @@
             let newOrderId = Math.floor(1000 + Math.random() * 9000);
             let savedToServer = false;
 
+            showToast("⏳ Server bilan bog'lanmoqda...");
+
+            // Warm up server first (Render cold start)
+            await warmUpServer();
+            await new Promise(r => setTimeout(r, 2000));
+
             showToast("⏳ Buyurtmangiz yuborilmoqda...");
 
             // Try sending to backend (with retry for Render cold start)
             for (let attempt = 1; attempt <= 3; attempt++) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    const timeoutId = setTimeout(() => controller.abort(), 20000);
                     const response = await fetch(`${API_BASE_URL}/api/order`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2255,8 +2270,8 @@
             if (savedToServer) {
                 alert(`✅ Buyurtmangiz #${newOrderId} raqami bilan muvaffaqiyatli saqlandi!\nAdmin panelda ko'rinadi.`);
             } else {
-                alert(`❌ Server bilan bog'lanishda xatolik!\nIltimos, internet aloqangizni tekshiring va qayta urinib ko'ring.`);
-                return; // Don't clear cart if server save failed
+                alert(`❌ Server bilan bog'lanishda xatolik!\nIltimos, bir necha daqiqadan so'ng qayta urinib ko'ring.\nAgar muammo davom etsa, administrator bilan bog'laning.`);
+                return;
             }
 
             cart = [];
