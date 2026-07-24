@@ -9,12 +9,20 @@ from datetime import datetime, date
 from werkzeug.utils import secure_filename
 from functools import wraps
 
+ADMIN_TOKEN = None
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('admin_logged_in'):
-            return jsonify({"success": False, "message": "Ruxsat berilmadi! Admin tizimiga kiring."}), 403
-        return f(*args, **kwargs)
+        global ADMIN_TOKEN
+        auth_header = request.headers.get('Authorization', '')
+        token = auth_header.replace('Bearer ', '').strip()
+        if ADMIN_TOKEN and token == ADMIN_TOKEN:
+            return f(*args, **kwargs)
+        # fallback: session cookie
+        if session.get('admin_logged_in'):
+            return f(*args, **kwargs)
+        return jsonify({"success": False, "message": "Ruxsat berilmadi! Admin tizimiga kiring."}), 403
     return decorated_function
 
 app = Flask(__name__, static_folder='.')
@@ -233,6 +241,7 @@ def update_settings():
 # Admin Auth APIs
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
+    global ADMIN_TOKEN
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
@@ -252,8 +261,10 @@ def admin_login():
     req_password = str(password).strip() if password is not None else ''
 
     if req_username == str(db_username).strip() and req_password == str(db_password).strip():
+        import secrets
+        ADMIN_TOKEN = secrets.token_hex(32)
         session['admin_logged_in'] = True
-        return jsonify({"success": True, "message": "Admin paneliga xush kelibsiz!"})
+        return jsonify({"success": True, "message": "Admin paneliga xush kelibsiz!", "token": ADMIN_TOKEN})
     else:
         return jsonify({"success": False, "message": "Login yoki parol noto'g'ri!"}), 401
 
@@ -288,12 +299,19 @@ def change_admin_credentials():
 @app.route('/api/admin/check-auth', methods=['GET'])
 @app.route('/api/admin/check-session', methods=['GET'])
 def check_admin_auth():
+    global ADMIN_TOKEN
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header.replace('Bearer ', '').strip()
+    if ADMIN_TOKEN and token == ADMIN_TOKEN:
+        return jsonify({"logged_in": True})
     if session.get('admin_logged_in'):
-        return jsonify({"success": True, "logged_in": True})
-    return jsonify({"success": True, "logged_in": False})
+        return jsonify({"logged_in": True})
+    return jsonify({"logged_in": False})
 
 @app.route('/api/admin/logout', methods=['POST'])
 def admin_logout():
+    global ADMIN_TOKEN
+    ADMIN_TOKEN = None
     session.pop('admin_logged_in', None)
     return jsonify({"success": True, "message": "Chiqib ketdingiz!"})
 

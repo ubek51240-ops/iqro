@@ -1563,6 +1563,17 @@
         let chatSessions = {};
         const API_BASE_URL = 'https://iqro.onrender.com';
 
+        // Token-based auth (works cross-origin Netlify → Render)
+        let adminToken = localStorage.getItem('iqro_admin_token') || '';
+
+        function getAuthHeaders(extra = {}) {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${adminToken}`,
+                ...extra
+            };
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             checkAdminSession();
             initSocket();
@@ -1668,7 +1679,9 @@
         // Check if admin is logged in
         async function checkAdminSession() {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/admin/check-session`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE_URL}/api/admin/check-session`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
                 const data = await res.json();
                 if (data.logged_in) {
                     document.getElementById('loginScreen').style.display = 'none';
@@ -1676,13 +1689,7 @@
                     return;
                 }
             } catch (e) {
-                console.log("Backend offline or Netlify static host mode");
-            }
-
-            // Static mode check
-            if (localStorage.getItem('iqro_admin_session') === 'logged_in') {
-                document.getElementById('loginScreen').style.display = 'none';
-                loadDashboardData();
+                console.log("Backend offline");
             }
         }
 
@@ -1696,12 +1703,14 @@
                 const res = await fetch(`${API_BASE_URL}/api/admin/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
                     body: JSON.stringify({ username, password })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    localStorage.setItem('iqro_admin_session', 'logged_in');
+                    if (data.token) {
+                        adminToken = data.token;
+                        localStorage.setItem('iqro_admin_token', adminToken);
+                    }
                     document.getElementById('loginScreen').style.display = 'none';
                     loadDashboardData();
                     initSocket();
@@ -1711,25 +1720,18 @@
                     return;
                 }
             } catch (err) {
-                console.log("Backend offline, validating locally");
-            }
-
-            if (username === 'admin' && password === '123') {
-                localStorage.setItem('iqro_admin_session', 'logged_in');
-                document.getElementById('loginScreen').style.display = 'none';
-                loadDashboardData();
-                initSocket();
-            } else {
-                alert("Login yoki parol xato!");
+                alert("❌ Server bilan bog'lanib bo'lmadi! Internet aloqangizni tekshiring.");
             }
         }
 
         // Logout handler
         async function handleLogout() {
             if (confirm('Admin panelidan chiqmoqchimisiz?')) {
-                localStorage.removeItem('iqro_admin_logged_in');
+                adminToken = '';
+                localStorage.removeItem('iqro_admin_token');
+                localStorage.removeItem('iqro_admin_session');
                 try {
-                    await fetch('/api/admin/logout', { method: 'POST' });
+                    await fetch(`${API_BASE_URL}/api/admin/logout`, { method: 'POST' });
                 } catch (e) {}
                 location.reload();
             }
@@ -2027,7 +2029,9 @@
         // Load Orders
         async function loadOrders() {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/admin/orders`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE_URL}/api/admin/orders`, {
+                    headers: getAuthHeaders()
+                });
                 const data = await res.json();
                 if (data.success) {
                     allOrders = data.orders || [];
@@ -2219,9 +2223,9 @@
             }
 
             try {
-                const res = await fetch('/api/admin/orders/update-status', {
+                const res = await fetch(`${API_BASE_URL}/api/admin/orders/update-status`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ order_id: orderId, status: newStatus })
                 });
                 if (res.ok) {
@@ -2245,13 +2249,17 @@
                 try {
                     const formData = new FormData();
                     formData.append('file', fileInput.files[0]);
-                    const uploadRes = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                    const uploadRes = await fetch(`${API_BASE_URL}/api/admin/upload`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${adminToken}` },
+                        body: formData
+                    });
                     const uploadData = await uploadRes.json();
                     if (uploadData.success) {
                         imageUrl = uploadData.url || uploadData.image_url;
                     }
                 } catch (err) {
-                    console.log("Server upload failed, converting to Base64 data URL for static mode");
+                    console.log("Server upload failed, converting to Base64");
                     imageUrl = await new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onload = (e) => resolve(e.target.result);
@@ -2276,12 +2284,12 @@
             };
 
             try {
-                const url = id ? `/api/admin/books/${id}` : '/api/admin/books';
+                const url = id ? `${API_BASE_URL}/api/admin/books/${id}` : `${API_BASE_URL}/api/admin/books`;
                 const method = id ? 'PUT' : 'POST';
 
                 const res = await fetch(url, {
                     method: method,
-                    headers: {'Content-Type': 'application/json'},
+                    headers: getAuthHeaders(),
                     body: JSON.stringify(newBookObj)
                 });
                 const resData = await res.json();
@@ -2295,35 +2303,19 @@
                     return;
                 }
             } catch (err) {
-                console.log("Backend offline, saving to static localStorage fallback");
+                alert("❌ Server bilan bog'lanishda xatolik! Kitob saqlanmadi.");
+                return;
             }
-
-            // Save to localStorage for Netlify/static hosting mode
-            let localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
-            if (id) {
-                const idx = localBooks.findIndex(b => b.id == id);
-                if (idx !== -1) localBooks[idx] = newBookObj;
-                else localBooks.push(newBookObj);
-            } else {
-                localBooks.unshift(newBookObj);
-            }
-            localStorage.setItem('iqro_custom_books', JSON.stringify(localBooks));
-
-            alert("Kitob muvaffaqiyatli saqlandi!");
-            closeBookModal();
-            loadBooks();
         }
 
         async function deleteBook(id) {
             if (confirm('Ushbu kitobni katalogdan o\'chirmoqchimisiz?')) {
                 try {
-                    await fetch(`/api/admin/books/${id}`, { method: 'DELETE' });
+                    await fetch(`${API_BASE_URL}/api/admin/books/${id}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
                 } catch (e) {}
-
-                let localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
-                localBooks = localBooks.filter(b => b.id != id);
-                localStorage.setItem('iqro_custom_books', JSON.stringify(localBooks));
-
                 loadBooks();
             }
         }
@@ -2402,7 +2394,9 @@
         // Chat functionality
         async function loadChatHistory() {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/admin/chat-history`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE_URL}/api/admin/chat-history`, {
+                    headers: getAuthHeaders()
+                });
                 const data = await res.json();
                 if (data.success && data.sessions) {
                     chatSessions = data.sessions;
@@ -2410,25 +2404,10 @@
                     return;
                 }
             } catch (e) {
-                console.log("Backend offline, using localStorage chat sync fallback");
+                console.log("Backend offline:", e.message);
             }
 
-            // Fallback for Netlify / Static hosting mode (reads from local storage)
             chatSessions = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('iqro_chat_msgs_')) {
-                    const sid = key.replace('iqro_chat_msgs_', '');
-                    const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-                    if (msgs.length > 0) {
-                        chatSessions[sid] = {
-                            user_name: msgs[0].user_name || 'Mijoz',
-                            messages: msgs
-                        };
-                    }
-                }
-            }
-
             renderChatSessions();
         }
 
