@@ -1965,6 +1965,11 @@
             const tbody = document.getElementById('booksTableBody');
             const salesMap = getBookSalesMap();
 
+            if (!books || books.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted); padding: 30px;">Katalogda kitoblar topilmadi.</td></tr>';
+                return;
+            }
+
             tbody.innerHTML = books.map(b => {
                 const stockVal = b.stock !== undefined ? b.stock : 10;
                 const stockBadgeClass = stockVal > 5 ? 'color:#10b981; background:rgba(16,185,129,0.15);' : (stockVal > 0 ? 'color:#f59e0b; background:rgba(245,158,11,0.15);' : 'color:#ef4444; background:rgba(239,68,68,0.15);');
@@ -2086,6 +2091,10 @@
 
         function renderOrders(orders) {
             const tbody = document.getElementById('ordersTableBody');
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: var(--text-muted); padding: 30px;">Hozircha buyurtmalar mavjud emas.</td></tr>';
+                return;
+            }
             tbody.innerHTML = orders.map(o => {
                 const itemsStr = (o.items || []).map(i => `<span style="display:inline-block; background:rgba(79, 70, 229, 0.15); color:#a5b4fc; padding:2px 8px; border-radius:6px; font-size:0.82rem; margin:2px 0;">📖 ${i.title} <strong>(${i.quantity}x)</strong></span>`).join('<br>');
 
