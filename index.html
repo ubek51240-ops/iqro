@@ -1217,6 +1217,7 @@
         let currentCategory = 'all';
         let searchQuery = '';
         let trackingInterval = null;
+        const API_BASE_URL = 'https://iqro.onrender.com';
 
         // REAL-TIME CHAT SOCKET & SESSION
         let userSocket = null;
@@ -1295,7 +1296,7 @@
         function initUserSocket() {
             try {
                 if (!userSocket && typeof io === 'function') {
-                    userSocket = io();
+                    userSocket = io(API_BASE_URL);
                     userSocket.emit('join_chat', { session_id: chatSessionId });
 
                     userSocket.on('order_status_updated', (data) => {
@@ -1331,7 +1332,7 @@
         async function fetchSettings() {
             let settings = null;
             try {
-                const res = await fetch('/api/settings');
+                const res = await fetch(`${API_BASE_URL}/api/settings`);
                 const data = await res.json();
                 if (data.success && data.settings) {
                     settings = data.settings;
@@ -1482,7 +1483,7 @@
 
         async function fetchBooks() {
             try {
-                const url = `/api/books?category=${currentCategory}&search=${encodeURIComponent(searchQuery)}`;
+                const url = `${API_BASE_URL}/api/books?category=${currentCategory}&search=${encodeURIComponent(searchQuery)}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 
@@ -1606,7 +1607,7 @@
             }
 
             try {
-                const res = await fetch('/api/user/favorites', {
+                const res = await fetch(`${API_BASE_URL}/api/user/favorites`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: currentUser.email, book_id: bookId })
@@ -2272,7 +2273,7 @@
             let isSavedLocally = false;
 
             try {
-                const response = await fetch('/api/order', {
+                const response = await fetch(`${API_BASE_URL}/api/order`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, phone, address, payment_method, items: orderItems })
