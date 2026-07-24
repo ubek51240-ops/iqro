@@ -1304,6 +1304,7 @@
                                 <th>Muallif</th>
                                 <th>Kategoriya</th>
                                 <th>Narx</th>
+                                <th>Zaxira (Soni)</th>
                                 <th>Reyting</th>
                                 <th>Amallar</th>
                             </tr>
@@ -1485,8 +1486,8 @@
                         <input type="number" id="bookPrice" required>
                     </div>
                     <div class="form-group">
-                        <label>Eski Narx (ixcham)</label>
-                        <input type="number" id="bookOldPrice">
+                        <label>Mavjud soni (Zaxira/Dona)</label>
+                        <input type="number" id="bookStock" min="0" value="10" placeholder="Masalan: 20" required>
                     </div>
                 </div>
                 <div class="form-group">
@@ -1879,22 +1880,31 @@
 
         function renderBooks(books) {
             const tbody = document.getElementById('booksTableBody');
-            tbody.innerHTML = books.map(b => `
-                <tr>
-                    <td><img src="${b.image}" class="book-thumb" alt="${b.title}" onerror="this.src='https://via.placeholder.com/50x70'"></td>
-                    <td style="font-weight: 700; color: white;">${b.title}</td>
-                    <td>${b.author}</td>
-                    <td><span class="badge-cat">${b.category}</span></td>
-                    <td class="price-text">${Number(b.price).toLocaleString()} UZS</td>
-                    <td><i class="fa-solid fa-star" style="color: var(--accent);"></i> ${b.rating || 5.0}</td>
-                    <td>
-                        <div class="action-btns">
-                            <button class="btn-action-icon btn-edit" onclick="editBook(${b.id})"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn-action-icon btn-delete" onclick="deleteBook(${b.id})"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = books.map(b => {
+                const stockVal = b.stock !== undefined ? b.stock : 10;
+                const stockBadgeClass = stockVal > 5 ? 'color:#10b981; background:rgba(16,185,129,0.15);' : (stockVal > 0 ? 'color:#f59e0b; background:rgba(245,158,11,0.15);' : 'color:#ef4444; background:rgba(239,68,68,0.15);');
+                return `
+                    <tr>
+                        <td><img src="${b.image}" class="book-thumb" alt="${b.title}" onerror="this.src='https://via.placeholder.com/50x70'"></td>
+                        <td style="font-weight: 700; color: white;">${b.title}</td>
+                        <td>${b.author}</td>
+                        <td><span class="badge-cat">${b.category}</span></td>
+                        <td class="price-text">${Number(b.price).toLocaleString()} UZS</td>
+                        <td>
+                            <span style="padding:4px 12px; border-radius:20px; font-weight:800; font-size:0.85rem; ${stockBadgeClass}">
+                                ${stockVal} dona
+                            </span>
+                        </td>
+                        <td><i class="fa-solid fa-star" style="color: var(--accent);"></i> ${b.rating || 5.0}</td>
+                        <td>
+                            <div class="action-btns">
+                                <button class="btn-action-icon btn-edit" onclick="editBook(${b.id})"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn-action-icon btn-delete" onclick="deleteBook(${b.id})"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function filterBooks() {
@@ -1919,17 +1929,7 @@
                     const uniqueCustomers = new Set(allOrders.map(o => (o.phone || o.customer_name || '').trim()).filter(Boolean));
                     document.getElementById('statUsersCount').innerText = uniqueCustomers.size;
                     
-                    const recent = allOrders.slice(0, 5);
-                    document.getElementById('dashRecentOrdersTable').innerHTML = recent.map(o => `
-                        <tr>
-                            <td style="font-weight: 800; color: var(--primary-light);">#${o.order_id}</td>
-                            <td style="font-weight: 700; color: white;">${o.customer_name}</td>
-                            <td>${o.phone}</td>
-                            <td>${o.address}</td>
-                            <td class="price-text">${Number(o.total_price).toLocaleString()} UZS</td>
-                            <td><span class="status-select ${getStatusClass(o.status)}">${o.status}</span></td>
-                        </tr>
-                    `).join('');
+                    renderRecentDashboardOrders(allOrders);
                     return;
                 }
             } catch (e) {
@@ -1944,6 +1944,30 @@
             document.getElementById('statTotalRevenue').innerText = totalRev.toLocaleString() + ' UZS';
             const uniqueCustomers = new Set(allOrders.map(o => (o.phone || o.customer_name || '').trim()).filter(Boolean));
             document.getElementById('statUsersCount').innerText = uniqueCustomers.size;
+
+            renderRecentDashboardOrders(allOrders);
+        }
+
+        function renderRecentDashboardOrders(orders) {
+            const table = document.getElementById('dashRecentOrdersTable');
+            if (!table) return;
+
+            const recent = orders.slice(0, 5);
+            if (recent.length === 0) {
+                table.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">Hozircha buyurtmalar mavjud emas.</td></tr>';
+                return;
+            }
+
+            table.innerHTML = recent.map(o => `
+                <tr>
+                    <td style="font-weight: 800; color: var(--primary-light);">#${o.order_id}</td>
+                    <td style="font-weight: 700; color: white;">${o.customer_name}</td>
+                    <td>${o.phone}</td>
+                    <td>${o.address}</td>
+                    <td class="price-text">${Number(o.total_price).toLocaleString()} UZS</td>
+                    <td><span class="status-select ${getStatusClass(o.status)}">${o.status}</span></td>
+                </tr>
+            `).join('');
         }
 
         function getStatusClass(status) {
@@ -2040,10 +2064,49 @@
             document.getElementById('bookAuthor').value = book.author;
             document.getElementById('bookCategory').value = book.category;
             document.getElementById('bookPrice').value = book.price;
-            document.getElementById('bookOldPrice').value = book.old_price || '';
+            document.getElementById('bookStock').value = book.stock !== undefined ? book.stock : 10;
             document.getElementById('bookImage').value = book.image;
             document.getElementById('bookModalTitle').innerText = "Kitobni Tahrirlash";
             document.getElementById('bookModal').classList.add('active');
+        }
+
+        async function updateOrderStatus(orderId, newStatus) {
+            let previousStatus = null;
+
+            try {
+                const res = await fetch('/api/admin/orders/update-status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ order_id: orderId, status: newStatus })
+                });
+                if (res.ok) {
+                    loadOrders();
+                    loadBooks();
+                    return;
+                }
+            } catch (e) {}
+
+            // Static fallback for Netlify mode (subtract stock on status Yig'ilmoqda)
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            const order = localOrders.find(o => o.order_id == orderId);
+            if (order) {
+                previousStatus = order.status;
+                order.status = newStatus;
+                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+
+                if (newStatus === "Yig'ilmoqda" && previousStatus !== "Yig'ilmoqda") {
+                    const localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
+                    (order.items || []).forEach(item => {
+                        const targetBook = localBooks.find(b => b.title === item.title);
+                        if (targetBook) {
+                            targetBook.stock = Math.max(0, (targetBook.stock !== undefined ? targetBook.stock : 10) - Number(item.quantity || 1));
+                        }
+                    });
+                    localStorage.setItem('iqro_custom_books', JSON.stringify(localBooks));
+                }
+            }
+            loadOrders();
+            loadBooks();
         }
 
         async function handleSaveBook(e) {
@@ -2077,7 +2140,7 @@
                 author: document.getElementById('bookAuthor').value,
                 category: document.getElementById('bookCategory').value,
                 price: Number(document.getElementById('bookPrice').value),
-                old_price: document.getElementById('bookOldPrice').value ? Number(document.getElementById('bookOldPrice').value) : null,
+                stock: Number(document.getElementById('bookStock').value || 10),
                 image: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80',
                 type: 'bestseller',
                 rating: 5.0

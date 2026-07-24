@@ -54,7 +54,8 @@ def init_db():
             rating REAL DEFAULT 5.0,
             tag TEXT,
             tag_type TEXT,
-            image TEXT NOT NULL
+            image TEXT NOT NULL,
+            stock INTEGER DEFAULT 10
         )
     ''')
 
@@ -110,6 +111,11 @@ def init_db():
         cursor.execute("ALTER TABLE comments ADD COLUMN likes INTEGER DEFAULT 0")
     if 'replies_json' not in comment_cols:
         cursor.execute("ALTER TABLE comments ADD COLUMN replies_json TEXT DEFAULT '[]'")
+
+    cursor.execute("PRAGMA table_info(books)")
+    book_cols = [row['name'] for row in cursor.fetchall()]
+    if 'stock' not in book_cols:
+        cursor.execute("ALTER TABLE books ADD COLUMN stock INTEGER DEFAULT 10")
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chat_messages (
@@ -673,6 +679,7 @@ def add_book():
     title = data.get('title')
     author = data.get('author')
     price = data.get('price')
+    stock = int(data.get('stock', 10))
 
     if not title or not author or not price:
         return jsonify({"success": False, "message": "Sarlavha, muallif va narx shart!"}), 400
@@ -681,8 +688,8 @@ def add_book():
     cursor = conn.cursor()
 
     cursor.execute('''
-        INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         title,
         author,
@@ -693,7 +700,8 @@ def add_book():
         float(data.get('rating', 5.0)),
         data.get('tag', 'Yangi'),
         data.get('tag_type', 'success'),
-        data.get('image') or "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80"
+        data.get('image') or "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80",
+        stock
     ))
 
     conn.commit()
@@ -717,7 +725,8 @@ def update_book(book_id):
             old_price = ?,
             category = ?,
             type = ?,
-            image = ?
+            image = ?,
+            stock = ?
         WHERE id = ?
     ''', (
         data.get('title'),
@@ -727,12 +736,13 @@ def update_book(book_id):
         data.get('category'),
         data.get('type'),
         data.get('image'),
+        int(data.get('stock', 10)),
         book_id
     ))
 
     conn.commit()
     conn.close()
-    return jsonify({"success": True, "message": "Kitob va narxi bazada yangilandi!"})
+    return jsonify({"success": True, "message": "Kitob va mavjud soni (zaxirasi) bazada yangilandi!"})
 
 # Admin API: Kitobni o'chirish
 @app.route('/api/admin/books/<int:book_id>', methods=['DELETE'])
@@ -760,7 +770,7 @@ def get_orders():
     conn.close()
     return jsonify({"success": True, "orders": orders_list})
 
-# Admin API: Buyurtma statusi
+# Admin API: Buyurtma statusi (Yig'ilmoqda statusiga o'tganda sonidan ayirish)
 @app.route('/api/admin/orders/<int:order_id>/status', methods=['PUT'])
 @app.route('/api/admin/orders/update-status', methods=['POST'])
 def update_order_status(order_id=None):
@@ -774,10 +784,28 @@ def update_order_status(order_id=None):
 
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute('SELECT status, items_json FROM orders WHERE order_id = ?', (order_id,))
+    row = cursor.fetchone()
+    old_status = row['status'] if row else None
+
     cursor.execute('UPDATE orders SET status = ? WHERE order_id = ?', (new_status, order_id))
+    
+    # Agar status 'Yig'ilmoqda'ga o'zgartirilsa va oldin 'Yig'ilmoqda' bo'lmagan bo'lsa -> Zaxiradan ayiramiz
+    if new_status == "Yig'ilmoqda" and old_status != "Yig'ilmoqda" and row:
+        try:
+            items = json.loads(row['items_json'] or '[]')
+            for item in items:
+                title = item.get('title')
+                qty = int(item.get('quantity', 1))
+                if title:
+                    cursor.execute('UPDATE books SET stock = MAX(0, stock - ?) WHERE title = ?', (qty, title))
+        except Exception as e:
+            print("Error deducting stock:", e)
+
     conn.commit()
     conn.close()
-    return jsonify({"success": True, "message": f"Status '{new_status}'ga o'zgartirildi!"})
+    return jsonify({"success": True, "message": f"Status '{new_status}'ga o'zgartirildi va zaxira (soni) yangilandi!"})
 
 # User Track API
 @app.route('/api/orders/track', methods=['GET'])
