@@ -43,6 +43,9 @@ def add_cors_headers(response):
     origin = request.headers.get('Origin', '')
     if origin in ALLOWED_ORIGINS or not origin:
         response.headers['Access-Control-Allow-Origin'] = origin or '*'
+    elif '.netlify.app' in origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        ALLOWED_ORIGINS.append(origin)
     else:
         response.headers['Access-Control-Allow-Origin'] = 'https://iqrouzb.netlify.app'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
@@ -70,8 +73,10 @@ ADMIN_CREDENTIALS = {
 }
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA busy_timeout=30000')
     return conn
 
 def init_db():
@@ -1010,57 +1015,61 @@ def login():
 # Order Create API
 @app.route('/api/order', methods=['POST'])
 def create_order():
-    data = request.get_json() or {}
-    items = data.get('items', [])
-    if not items:
-        return jsonify({"success": False, "message": "Savatingiz bo'sh!"}), 400
-
-    name = data.get('name', 'Mijoz').strip()
-    phone = data.get('phone', '').strip()
-    address = data.get('address', '').strip()
-    payment_method = data.get('payment_method', 'Naqd')
-
-    if not name or not phone or not address:
-        return jsonify({"success": False, "message": "Ism, telefon va manzilni kiriting!"}), 400
-
-    total_price = sum(item['price'] * item['quantity'] for item in items)
-    items_json = json.dumps(items)
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        INSERT INTO orders (customer_name, phone, address, payment_method, items_json, total_price, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (name, phone, address, payment_method, items_json, total_price, "Qabul qilindi"))
-
-    conn.commit()
-    order_id = cursor.lastrowid
-    conn.close()
-
-    order_payload = {
-        "order_id": order_id,
-        "customer_name": name,
-        "phone": phone,
-        "address": address,
-        "payment_method": payment_method,
-        "items": items,
-        "total_price": total_price,
-        "status": "Qabul qilindi",
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
-    }
-
     try:
-        socketio.emit('new_order', order_payload, room='admin_room')
-        socketio.emit('new_order', order_payload)  # broadcast fallback
-    except Exception as e:
-        print("Socket order emit error:", e)
+        data = request.get_json() or {}
+        items = data.get('items', [])
+        if not items:
+            return jsonify({"success": False, "message": "Savatingiz bo'sh!"}), 400
 
-    return jsonify({
-        "success": True,
-        "message": f"Buyurtmangiz #{order_id} raqami bilan bazaga muvaffaqiyatli saqlandi!",
-        "order_id": order_id
-    })
+        name = data.get('name', 'Mijoz').strip()
+        phone = data.get('phone', '').strip()
+        address = data.get('address', '').strip()
+        payment_method = data.get('payment_method', 'Naqd')
+
+        if not name or not phone or not address:
+            return jsonify({"success": False, "message": "Ism, telefon va manzilni kiriting!"}), 400
+
+        total_price = sum(int(item.get('price', 0)) * int(item.get('quantity', 1)) for item in items)
+        items_json = json.dumps(items)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            INSERT INTO orders (customer_name, phone, address, payment_method, items_json, total_price, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, phone, address, payment_method, items_json, total_price, "Qabul qilindi"))
+
+        conn.commit()
+        order_id = cursor.lastrowid
+        conn.close()
+
+        order_payload = {
+            "order_id": order_id,
+            "customer_name": name,
+            "phone": phone,
+            "address": address,
+            "payment_method": payment_method,
+            "items": items,
+            "total_price": total_price,
+            "status": "Qabul qilindi",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+
+        try:
+            socketio.emit('new_order', order_payload, room='admin_room')
+            socketio.emit('new_order', order_payload)  # broadcast fallback
+        except Exception as e:
+            print("Socket order emit error:", e)
+
+        return jsonify({
+            "success": True,
+            "message": f"Buyurtmangiz #{order_id} raqami bilan bazaga muvaffaqiyatli saqlandi!",
+            "order_id": order_id
+        })
+    except Exception as e:
+        print("Order creation error:", e)
+        return jsonify({"success": False, "message": "Buyurtmani saqlashda xatolik yuz berdi!"}), 500
 
 if __name__ == '__main__':
     print("=== IQRO Real-Time Chat & Backend serveri ishga tushmoqda: http://127.0.0.1:8000 ===")

@@ -1217,7 +1217,9 @@
         let currentCategory = 'all';
         let searchQuery = '';
         let trackingInterval = null;
-        const API_BASE_URL = 'https://iqro.onrender.com';
+        const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? window.location.origin
+            : 'https://iqro.onrender.com';
 
         // REAL-TIME CHAT SOCKET & SESSION
         let userSocket = null;
@@ -2075,7 +2077,7 @@
             }
 
             try {
-                const response = await fetch('/api/login', {
+                const response = await fetch(`${API_BASE_URL}/api/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
@@ -2230,6 +2232,11 @@
                         signal: controller.signal
                     });
                     clearTimeout(timeoutId);
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        console.log(`Server error (${response.status}):`, errText);
+                        throw new Error(`Server javob berdi: ${response.status}`);
+                    }
                     const data = await response.json();
                     if (data.success) {
                         if (data.order_id) newOrderId = data.order_id;
@@ -2299,7 +2306,7 @@
         async function fetchSettings() {
             let settings = {};
             try {
-                const res = await fetch('/api/settings');
+                const res = await fetch(`${API_BASE_URL}/api/settings`);
                 const data = await res.json();
                 if (data.success && data.settings) {
                     settings = data.settings;

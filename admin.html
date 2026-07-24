@@ -1561,7 +1561,9 @@
         let currentChatSessionId = null;
         let activeChatUserName = '';
         let chatSessions = {};
-        const API_BASE_URL = 'https://iqro.onrender.com';
+        const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? window.location.origin
+            : 'https://iqro.onrender.com';
 
         // Token-based auth (works cross-origin Netlify → Render)
         let adminToken = localStorage.getItem('iqro_admin_token') || '';
@@ -1576,7 +1578,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             checkAdminSession();
-            initSocket();
         });
 
         // Sound Alert function
@@ -1686,6 +1687,7 @@
                 if (data.logged_in) {
                     document.getElementById('loginScreen').style.display = 'none';
                     loadDashboardData();
+                    initSocket();
                     return;
                 }
             } catch (e) {
@@ -1890,7 +1892,7 @@
             if (!text) return alert("Javob matnini kiriting!");
 
             try {
-                const res = await fetch(`/api/comments/${commentId}/reply`, {
+                const res = await fetch(`${API_BASE_URL}/api/comments/${commentId}/reply`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ user: 'Admin 🛡️', text: text })
@@ -2130,7 +2132,7 @@
         async function deleteOrder(orderId) {
             if (confirm('Ushbu buyurtmani o\'chirmoqchimisiz?')) {
                 try {
-                    await fetch(`/api/admin/orders/${orderId}`, { method: 'DELETE' });
+                    await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}`, { method: 'DELETE' });
                 } catch (e) {}
                 let localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
                 localOrders = localOrders.filter(o => o.order_id != orderId);
@@ -2314,7 +2316,7 @@
         // Settings API
         async function loadSettings() {
             try {
-                const res = await fetch('/api/settings');
+                const res = await fetch(`${API_BASE_URL}/api/settings`);
                 const data = await res.json();
                 if (data.settings && data.settings.store_address) {
                     document.getElementById('settingAddress').value = data.settings.store_address || '';
