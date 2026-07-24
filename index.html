@@ -1493,21 +1493,26 @@
                 }
             } catch (error) { console.error("API Error:", error); }
 
-            // GitHub Pages / Netlify statik namoyish rejimi
+            // GitHub Pages / Netlify statik namoyish rejimi (Frontend static mode)
             const localCustomBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
             const fallbackBooks = [
-                { id: 1, title: "Saodat Asri Qissalari", author: "Lutfiy Qozonchi", price: 120000, category: "diniy", image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" },
-                { id: 2, title: "Uloq / Badiiy to'plam", author: "Abdulla Qodiriy", price: 45000, category: "badiiy", image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80" },
-                { id: 3, title: "Boy Ota, Kambag'al Ota", author: "Robert Kiyosaki", price: 65000, category: "biznes", image: "https://images.unsplash.com/photo-1592496431122-2349e0fbc666?w=400&q=80" },
-                { id: 4, title: "Atom Odatlar", author: "James Clear", price: 58000, category: "psixologiya", image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&q=80" }
+                { id: 1, title: "O'tkan Kunlar", author: "Abdulla Qodiriy", price: 45000, old_price: null, category: "badiiy", type: "bestseller", rating: 4.9, image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80", stock: 10, description: "O'zbek adabiyotining durdona asari." },
+                { id: 2, title: "Atom Odatlari", author: "Djeyms Klir", price: 65000, old_price: 75000, category: "biznes", type: "discount", rating: 5.0, image: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80", stock: 10, description: "Kichik o'zgarishlar orqali katta natijalarga erishish bo'yicha bestseller." },
+                { id: 3, title: "Ijtimoiy Odoblar", author: "Shayx Muhammad Sodiq", price: 75000, old_price: null, category: "diniy", type: "new", rating: 5.0, image: "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=400&q=80", stock: 10, description: "Jamiyatda va kundalik hayotda islomiy odob-axloq qoidalari." },
+                { id: 4, title: "Boy Ota, Kambag'al Ota", author: "Robert Kiyosaki", price: 55000, old_price: 68000, category: "biznes", type: "discount", rating: 4.7, image: "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=400&q=80", stock: 10, description: "Moliyaviy savodxonlik va erkinlik sirlarini o'rgatuvchi qo'llanma." },
+                { id: 5, title: "Saodat Asri Qissalari", author: "Lutfiy Qozonchi", price: 220000, old_price: null, category: "psixologiya", type: "bestseller", rating: 5.0, image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&q=80", stock: 10, description: "Payg'ambarimiz va sahobiylari hayotini yorituvchi asar." },
+                { id: 6, title: "Alkimyogar", author: "Paulo Koelo", price: 42000, old_price: 52000, category: "badiiy", type: "discount", rating: 4.8, image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80", stock: 10, description: "O'z taqdirini qidirayotgan cho'pon yigitning sarguzashtlari." }
             ];
 
             let mergedBooks = [...localCustomBooks, ...fallbackBooks];
 
             // Apply category and search filters if selected
-            if (currentCategory && currentCategory !== 'all') {
+            if (currentCategory === 'discount') {
+                mergedBooks = mergedBooks.filter(b => (b.old_price && Number(b.old_price) > Number(b.price)) || b.type === 'discount');
+            } else if (currentCategory && currentCategory !== 'all') {
                 mergedBooks = mergedBooks.filter(b => b.category === currentCategory);
             }
+
             if (searchQuery) {
                 const sq = searchQuery.toLowerCase();
                 mergedBooks = mergedBooks.filter(b => b.title.toLowerCase().includes(sq) || b.author.toLowerCase().includes(sq));
