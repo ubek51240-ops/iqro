@@ -1301,7 +1301,6 @@
 
                     userSocket.on('order_status_updated', (data) => {
                         if (data && data.order_id) {
-                            // Refresh from server to get updated status
                             if (document.getElementById('trackOrdersModal').classList.contains('active')) {
                                 fetchUserOrders();
                             }
@@ -1315,13 +1314,6 @@
                     });
                 }
             } catch (e) { console.error(e); }
-
-            // Real-time tab/window storage event sync for instant message delivery without page refresh
-            window.addEventListener('storage', (e) => {
-                if (e.key === `iqro_chat_msgs_${chatSessionId}`) {
-                    loadUserChatHistory();
-                }
-            });
         }
 
         async function fetchSettings() {
@@ -1389,24 +1381,18 @@
 
         async function loadUserChatHistory() {
             try {
-                const res = await fetch(`/api/chat/messages/${chatSessionId}`);
+                const res = await fetch(`${API_BASE_URL}/api/chat/messages/${chatSessionId}`);
                 const data = await res.json();
+                const msgBox = document.getElementById('userChatMessages');
+                msgBox.innerHTML = '';
                 if (data.success && data.messages.length > 0) {
-                    const msgBox = document.getElementById('userChatMessages');
-                    msgBox.innerHTML = '';
                     data.messages.forEach(msg => appendUserChatMessage(msg));
-                    return;
+                } else {
+                    msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, shu yerga yozishingiz mumkin.</div>';
                 }
-            } catch (err) { console.error("Chat fetch error:", err); }
-
-            // LocalStorage fallback for static mode
-            const savedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${chatSessionId}`) || '[]');
-            const msgBox = document.getElementById('userChatMessages');
-            msgBox.innerHTML = '';
-            if (savedMsgs.length === 0) {
+            } catch (err) {
+                const msgBox = document.getElementById('userChatMessages');
                 msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, shu yerga yozishingiz mumkin.</div>';
-            } else {
-                savedMsgs.forEach(msg => appendUserChatMessage(msg));
             }
         }
 
@@ -1436,6 +1422,7 @@
                 sender: 'user',
                 user_name: name,
                 message: text,
+                session_id: chatSessionId,
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
@@ -1450,27 +1437,6 @@
                     });
                 }
             } catch (err) { console.error(err); }
-
-            // Save to localStorage for static display & update UI immediately
-            const savedMsgs = JSON.parse(localStorage.getItem(`iqro_chat_msgs_${chatSessionId}`) || '[]');
-            savedMsgs.push(newMsg);
-            localStorage.setItem(`iqro_chat_msgs_${chatSessionId}`, JSON.stringify(savedMsgs));
-
-            // Sync with admin chat session
-            const adminSessions = JSON.parse(localStorage.getItem('iqro_admin_static_chat_sessions') || '[]');
-            const existingSession = adminSessions.find(s => s.chat_session_id === chatSessionId);
-            if (existingSession) {
-                existingSession.last_message = text;
-                existingSession.unread_count += 1;
-            } else {
-                adminSessions.unshift({
-                    chat_session_id: chatSessionId,
-                    user_name: name,
-                    last_message: text,
-                    unread_count: 1
-                });
-            }
-            localStorage.setItem('iqro_admin_static_chat_sessions', JSON.stringify(adminSessions));
 
             appendUserChatMessage(newMsg);
             input.value = '';
