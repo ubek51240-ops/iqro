@@ -2044,19 +2044,16 @@
                     return;
                 }
             } catch (e) {
-                console.log("Backend offline, loading local orders fallback");
+                console.log("Backend offline:", e.message);
             }
 
-            let localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            allOrders = localOrders;
-            renderOrders(allOrders);
-            document.getElementById('statOrdersCount').innerText = allOrders.length;
-            const totalRev = allOrders.reduce((sum, o) => sum + Number(o.total_price || 0), 0);
-            document.getElementById('statTotalRevenue').innerText = totalRev.toLocaleString() + ' UZS';
-            const uniqueCustomers = new Set(allOrders.map(o => (o.phone || o.customer_name || '').trim()).filter(Boolean));
-            document.getElementById('statUsersCount').innerText = uniqueCustomers.size;
-
-            renderRecentDashboardOrders(allOrders);
+            // Server is unreachable — show empty state, don't use localStorage
+            allOrders = [];
+            renderOrders([]);
+            document.getElementById('statOrdersCount').innerText = '—';
+            document.getElementById('statTotalRevenue').innerText = '— UZS';
+            document.getElementById('statUsersCount').innerText = '—';
+            renderRecentDashboardOrders([]);
         }
 
         function renderRecentDashboardOrders(orders) {

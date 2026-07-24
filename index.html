@@ -1301,12 +1301,7 @@
 
                     userSocket.on('order_status_updated', (data) => {
                         if (data && data.order_id) {
-                            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-                            const target = localOrders.find(o => o.order_id == data.order_id);
-                            if (target) {
-                                target.status = data.status;
-                                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
-                            }
+                            // Refresh from server to get updated status
                             if (document.getElementById('trackOrdersModal').classList.contains('active')) {
                                 fetchUserOrders();
                             }
@@ -2182,7 +2177,7 @@
 
             if (phoneList.length > 0) {
                 try {
-                    const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(phoneList[0])}&email=${encodeURIComponent(phoneList[1] || '')}`);
+                    const res = await fetch(`${API_BASE_URL}/api/orders/track?phone=${encodeURIComponent(phoneList[0])}&email=${encodeURIComponent(phoneList[1] || '')}`);
                     const data = await res.json();
                     if (data.success && data.orders) {
                         userOrders = data.orders;
@@ -2190,25 +2185,8 @@
                 } catch (err) { console.error("Order track fetch error:", err); }
             }
 
-            // Local fallback orders - match all past orders for logged in user (by phone, email, or customer_name)
-            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            const localMatching = localOrders.filter(o => {
-                if (searchPhones.size > 0 && o.phone && searchPhones.has(o.phone.trim())) return true;
-                if (searchPhones.size > 0 && o.email && searchPhones.has(o.email.trim())) return true;
-                if (searchNames.size > 0 && o.customer_name && searchNames.has(o.customer_name.trim().toLowerCase())) return true;
-                return false;
-            });
-
-            // Merge server and local orders (server orders take priority for updated status)
-            const orderMap = new Map();
-            localMatching.forEach(o => {
-                orderMap.set(o.order_id, o);
-            });
-            userOrders.forEach(o => {
-                orderMap.set(o.order_id, o); // Overwrites local order with fresh server status
-            });
-
-            const allUserOrders = Array.from(orderMap.values()).sort((a, b) => (b.order_id || 0) - (a.order_id || 0));
+            // Only use server orders — single source of truth
+            const allUserOrders = userOrders.sort((a, b) => (b.order_id || 0) - (a.order_id || 0));
             renderOrdersList(allUserOrders);
         }
 
@@ -2301,27 +2279,11 @@
                 }
             }
 
-            // Always save to localStorage for local tracking
-            const newOrderObj = {
-                order_id: newOrderId,
-                customer_name: name,
-                phone: phone,
-                email: currentUser ? currentUser.email : '',
-                address: address,
-                payment_method: payment_method,
-                items: orderItems,
-                total_price: totalSum,
-                status: 'Qabul qilindi',
-                created_at: new Date().toLocaleString()
-            };
-            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            localOrders.unshift(newOrderObj);
-            localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
-
             if (savedToServer) {
-                alert(`✅ Buyurtmangiz #${newOrderId} muvaffaqiyatli saqlandi!\nAdmin panel yangilanadi.`);
+                alert(`✅ Buyurtmangiz #${newOrderId} raqami bilan muvaffaqiyatli saqlandi!\nAdmin panelda ko'rinadi.`);
             } else {
-                alert(`⚠️ Buyurtmangiz #${newOrderId} qabul qilindi, lekin server bilan bog'lanishda muammo bo'ldi.\nIltimos, bir ozdan so'ng tekshirib ko'ring.`);
+                alert(`❌ Server bilan bog'lanishda xatolik!\nIltimos, internet aloqangizni tekshiring va qayta urinib ko'ring.`);
+                return; // Don't clear cart if server save failed
             }
 
             cart = [];
