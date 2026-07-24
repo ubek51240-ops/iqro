@@ -27,7 +27,33 @@ def admin_required(f):
 
 app = Flask(__name__, static_folder='.')
 app.secret_key = 'iqro_admin_super_secret_key_2026'
-CORS(app, supports_credentials=True)
+
+ALLOWED_ORIGINS = [
+    'https://iqrouzb.netlify.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://localhost:3000',
+    'null'
+]
+
+CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS)
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin', '')
+    if origin in ALLOWED_ORIGINS or not origin:
+        response.headers['Access-Control-Allow-Origin'] = origin or '*'
+    else:
+        response.headers['Access-Control-Allow-Origin'] = 'https://iqrouzb.netlify.app'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    return response
+
+@app.route('/api/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return '', 204
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
