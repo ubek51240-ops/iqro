@@ -19,7 +19,7 @@ def admin_required(f):
 
 app = Flask(__name__, static_folder='.')
 app.secret_key = 'iqro_admin_super_secret_key_2026'
-CORS(app)
+CORS(app, supports_credentials=True)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
