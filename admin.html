@@ -1285,12 +1285,20 @@
 
             <!-- 2. BOOKS SECTION -->
             <section id="booksTab" class="section-pane">
-                <div class="controls-bar">
-                    <div class="search-box">
+                <div class="controls-bar" style="display: flex; gap: 14px; flex-wrap: wrap;">
+                    <div class="search-box" style="flex: 1; min-width: 240px;">
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <input type="text" id="bookSearchInput" placeholder="Kitob nomi yoki muallif bo'yicha izlash..." oninput="filterBooks()">
                     </div>
-                    <button class="btn-add" onclick="openBookModal()">
+                    <div class="filter-box" style="min-width: 220px;">
+                        <select id="bookSalesSortFilter" onchange="filterBooks()" style="width: 100%; padding: 12px 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: var(--radius-md); color: white; outline: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+                            <option value="default" style="background: #0f172a; color: white;">Saralash: Standart</option>
+                            <option value="sales-desc" style="background: #0f172a; color: white;">🔥 Eng ko'p sotilganlar</option>
+                            <option value="sales-asc" style="background: #0f172a; color: white;">📉 Eng kam sotilganlar</option>
+                            <option value="stock-asc" style="background: #0f172a; color: white;">⚠️ Zaxirasi kam qolganlar</option>
+                        </select>
+                    </div>
+                    <button class="btn-add" onclick="openAddBookModal()">
                         <i class="fa-solid fa-plus"></i> Yangi Kitob Qo'shish
                     </button>
                 </div>
@@ -1305,6 +1313,7 @@
                                 <th>Kategoriya</th>
                                 <th>Narx</th>
                                 <th>Zaxira (Soni)</th>
+                                <th>Sotilgan Soni</th>
                                 <th>Reyting</th>
                                 <th>Amallar</th>
                             </tr>
@@ -1495,20 +1504,32 @@
                         </select>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
                     <div class="form-group">
-                        <label>Narx (UZS)</label>
-                        <input type="number" id="bookPrice" required>
+                        <label>Amaldagi Narx (UZS)</label>
+                        <input type="number" id="bookPrice" required oninput="calculateDiscountPercent()">
                     </div>
                     <div class="form-group">
-                        <label>Mavjud soni (Zaxira/Dona)</label>
-                        <input type="number" id="bookStock" min="0" value="10" placeholder="Masalan: 20" required>
+                        <label>Eski Narx (Chegirmasiz, UZS)</label>
+                        <input type="number" id="bookOldPrice" placeholder="Masalan: 75000" oninput="calculateDiscountPercent()">
                     </div>
+                    <div class="form-group">
+                        <label>Chegirma (%)</label>
+                        <input type="text" id="bookDiscountDisplay" readonly placeholder="0%" style="background: rgba(239, 68, 68, 0.15); color: #f87171; font-weight: 800; text-align: center;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Mavjud soni (Zaxira/Dona)</label>
+                    <input type="number" id="bookStock" min="0" value="10" placeholder="Masalan: 20" required>
                 </div>
                 <div class="form-group">
                     <label>Rasm URL yoki fayl tanlang</label>
                     <input type="text" id="bookImage" placeholder="https://..." style="margin-bottom: 8px;">
                     <input type="file" id="bookImageFile" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Qisqacha izoh / Kitob tavsifi (Foydalanuvchilar ko'rishi uchun)</label>
+                    <textarea id="bookDescription" rows="3" placeholder="Kitob haqida qisqacha ma'lumot, annotatsiya yoki admin izohini kiriting..." style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:var(--radius-md); color:white; outline:none; font-size:0.9rem; resize:vertical;"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" onclick="closeBookModal()">Bekor qilish</button>
@@ -1912,11 +1933,31 @@
             document.getElementById('statBooksCount').innerText = allBooks.length;
         }
 
+        function getBookSalesMap() {
+            const map = {};
+            (allOrders || []).forEach(o => {
+                (o.items || []).forEach(item => {
+                    const name = (item.title || '').trim().toLowerCase();
+                    const qty = Number(item.quantity || 1);
+                    if (name) {
+                        map[name] = (map[name] || 0) + qty;
+                    }
+                });
+            });
+            return map;
+        }
+
         function renderBooks(books) {
             const tbody = document.getElementById('booksTableBody');
+            const salesMap = getBookSalesMap();
+
             tbody.innerHTML = books.map(b => {
                 const stockVal = b.stock !== undefined ? b.stock : 10;
                 const stockBadgeClass = stockVal > 5 ? 'color:#10b981; background:rgba(16,185,129,0.15);' : (stockVal > 0 ? 'color:#f59e0b; background:rgba(245,158,11,0.15);' : 'color:#ef4444; background:rgba(239,68,68,0.15);');
+                
+                const soldQty = salesMap[(b.title || '').trim().toLowerCase()] || 0;
+                const salesBadgeStyle = soldQty > 0 ? 'color:#3b82f6; background:rgba(59,130,246,0.15);' : 'color:#94a3b8; background:rgba(148,163,184,0.1);';
+
                 return `
                     <tr>
                         <td><img src="${b.image}" class="book-thumb" alt="${b.title}" onerror="this.src='https://via.placeholder.com/50x70'"></td>
@@ -1927,6 +1968,11 @@
                         <td>
                             <span style="padding:4px 12px; border-radius:20px; font-weight:800; font-size:0.85rem; ${stockBadgeClass}">
                                 ${stockVal} dona
+                            </span>
+                        </td>
+                        <td>
+                            <span style="padding:4px 12px; border-radius:20px; font-weight:800; font-size:0.85rem; ${salesBadgeStyle}">
+                                🛍️ ${soldQty} dona
                             </span>
                         </td>
                         <td><i class="fa-solid fa-star" style="color: var(--accent);"></i> ${b.rating || 5.0}</td>
@@ -1942,8 +1988,20 @@
         }
 
         function filterBooks() {
-            const q = document.getElementById('bookSearchInput').value.toLowerCase();
-            const filtered = allBooks.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
+            const q = document.getElementById('bookSearchInput').value.toLowerCase().trim();
+            const sortVal = document.getElementById('bookSalesSortFilter') ? document.getElementById('bookSalesSortFilter').value : 'default';
+            const salesMap = getBookSalesMap();
+
+            let filtered = allBooks.filter(b => !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
+
+            if (sortVal === 'sales-desc') {
+                filtered.sort((a, b) => (salesMap[(b.title || '').trim().toLowerCase()] || 0) - (salesMap[(a.title || '').trim().toLowerCase()] || 0));
+            } else if (sortVal === 'sales-asc') {
+                filtered.sort((a, b) => (salesMap[(a.title || '').trim().toLowerCase()] || 0) - (salesMap[(b.title || '').trim().toLowerCase()] || 0));
+            } else if (sortVal === 'stock-asc') {
+                filtered.sort((a, b) => (a.stock !== undefined ? a.stock : 10) - (b.stock !== undefined ? b.stock : 10));
+            }
+
             renderBooks(filtered);
         }
 
@@ -2067,9 +2125,31 @@
         }
 
         // Book Modal Functions
-        function openBookModal() {
-            document.getElementById('bookForm').reset();
+        function calculateDiscountPercent() {
+            const currentPrice = Number(document.getElementById('bookPrice').value || 0);
+            const oldPrice = Number(document.getElementById('bookOldPrice').value || 0);
+            const displayEl = document.getElementById('bookDiscountDisplay');
+
+            if (oldPrice > currentPrice && currentPrice > 0) {
+                const percent = Math.round(((oldPrice - currentPrice) / oldPrice) * 100);
+                displayEl.value = `-${percent}%`;
+            } else {
+                displayEl.value = '0%';
+            }
+        }
+
+        function openAddBookModal() {
             document.getElementById('bookId').value = '';
+            document.getElementById('bookTitle').value = '';
+            document.getElementById('bookAuthor').value = '';
+            document.getElementById('bookCategory').value = 'badiiy';
+            document.getElementById('bookPrice').value = '';
+            document.getElementById('bookOldPrice').value = '';
+            document.getElementById('bookDiscountDisplay').value = '0%';
+            document.getElementById('bookStock').value = '10';
+            document.getElementById('bookImage').value = '';
+            document.getElementById('bookImageFile').value = '';
+            document.getElementById('bookDescription').value = '';
             document.getElementById('bookModalTitle').innerText = "Yangi Kitob Qo'shish";
             document.getElementById('bookModal').classList.add('active');
         }
@@ -2086,8 +2166,11 @@
             document.getElementById('bookAuthor').value = book.author;
             document.getElementById('bookCategory').value = book.category;
             document.getElementById('bookPrice').value = book.price;
+            document.getElementById('bookOldPrice').value = book.old_price || '';
+            calculateDiscountPercent();
             document.getElementById('bookStock').value = book.stock !== undefined ? book.stock : 10;
             document.getElementById('bookImage').value = book.image;
+            document.getElementById('bookDescription').value = book.description || '';
             document.getElementById('bookModalTitle').innerText = "Kitobni Tahrirlash";
             document.getElementById('bookModal').classList.add('active');
         }
@@ -2157,15 +2240,18 @@
                 }
             }
 
+            const oldPriceVal = Number(document.getElementById('bookOldPrice').value || 0);
             const newBookObj = {
                 id: id ? Number(id) : Date.now(),
                 title: document.getElementById('bookTitle').value,
                 author: document.getElementById('bookAuthor').value,
                 category: document.getElementById('bookCategory').value,
                 price: Number(document.getElementById('bookPrice').value),
+                old_price: oldPriceVal > 0 ? oldPriceVal : null,
                 stock: Number(document.getElementById('bookStock').value || 10),
                 image: imageUrl || 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80',
-                type: 'bestseller',
+                description: document.getElementById('bookDescription').value.trim(),
+                type: oldPriceVal > 0 ? 'discount' : 'bestseller',
                 rating: 5.0
             };
 
@@ -2179,10 +2265,13 @@
                     body: JSON.stringify(newBookObj)
                 });
                 const resData = await res.json();
-                if (resData.success) {
+                if (res.ok && resData.success) {
                     alert(resData.message || "Kitob saqlandi!");
                     closeBookModal();
                     loadBooks();
+                    return;
+                } else if (resData.message) {
+                    alert(resData.message);
                     return;
                 }
             } catch (err) {

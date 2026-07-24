@@ -64,7 +64,8 @@ def init_db():
             tag TEXT,
             tag_type TEXT,
             image TEXT NOT NULL,
-            stock INTEGER DEFAULT 10
+            stock INTEGER DEFAULT 10,
+            description TEXT
         )
     ''')
 
@@ -125,6 +126,8 @@ def init_db():
     book_cols = [row['name'] for row in cursor.fetchall()]
     if 'stock' not in book_cols:
         cursor.execute("ALTER TABLE books ADD COLUMN stock INTEGER DEFAULT 10")
+    if 'description' not in book_cols:
+        cursor.execute("ALTER TABLE books ADD COLUMN description TEXT")
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chat_messages (
@@ -154,16 +157,16 @@ def init_db():
     cursor.execute('SELECT COUNT(*) as count FROM books')
     if cursor.fetchone()['count'] == 0:
         initial_books = [
-            ("O'tkan Kunlar", "Abdulla Qodiriy", 45000, None, "badiiy", "bestseller", 4.9, "Top-1", "primary", "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80"),
-            ("Atom Odatlari", "Djeyms Klir", 65000, 75000, "biznes", "bestseller", 5.0, "Hit", "primary", "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&auto=format&fit=crop&q=80"),
-            ("Ijtimoiy Odoblar", "Shayx Muhammad Sodiq Muhammad Yusuf", 75000, None, "diniy", "new", 5.0, "Yangi", "success", "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=400&auto=format&fit=crop&q=80"),
-            ("Boy Ota, Kambag'al Ota", "Robert Kiyosaki", 55000, 68000, "biznes", "discount", 4.7, "-20%", "danger", "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=400&auto=format&fit=crop&q=80"),
-            ("Saodat Asri Qissalari (4 jildlik)", "Lutfiy Qozonchi", 220000, None, "psixologiya", "bestseller", 5.0, "Mashhur", "primary", "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&auto=format&fit=crop&q=80"),
-            ("Alkimyogar", "Paulo Koelo", 42000, None, "badiiy", "new", 4.8, "Yangi", "success", "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&auto=format&fit=crop&q=80")
+            ("O'tkan Kunlar", "Abdulla Qodiriy", 45000, None, "badiiy", "bestseller", 4.9, "Top-1", "primary", "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80", 10, "O'zbek adabiyotining durdona asari. XIX asr o'rtalaridagi Toshkent va Marg'ilon hayotini hamda Otabek va Kumushning fojiali sevgi qissasini yoritadi."),
+            ("Atom Odatlari", "Djeyms Klir", 65000, 75000, "biznes", "bestseller", 5.0, "Hit", "primary", "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&auto=format&fit=crop&q=80", 10, "Kichik o'zgarishlar orqali katta natijalarga erishish va yaxshi odatlarni shakllantirish bo'yicha dunyo bestselleri."),
+            ("Ijtimoiy Odoblar", "Shayx Muhammad Sodiq Muhammad Yusuf", 75000, None, "diniy", "new", 5.0, "Yangi", "success", "https://images.unsplash.com/photo-1609599006353-e629aaabfeae?w=400&auto=format&fit=crop&q=80", 10, "Jamiyatda va kundalik hayotda insoniy muomala hamda islomiy odob-axloq qoidalarini o'rgatuvchi qimmatli qo'llanma."),
+            ("Boy Ota, Kambag'al Ota", "Robert Kiyosaki", 55000, 68000, "biznes", "discount", 4.7, "-20%", "danger", "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=400&auto=format&fit=crop&q=80", 10, "Moliyaviy savodxonlik, erkinlik va boylik sirlarini o'rgatuvchi jahon miqyosidagi ko'rsatkich va qo'llanma."),
+            ("Saodat Asri Qissalari (4 jildlik)", "Lutfiy Qozonchi", 220000, None, "psixologiya", "bestseller", 5.0, "Mashhur", "primary", "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&auto=format&fit=crop&q=80", 10, "Payg'ambarimiz (s.a.v.) va ularning sahobiylari hayoti va saodat asri voqealarini aks ettiruvchi ta'sirli asar."),
+            ("Alkimyogar", "Paulo Koelo", 42000, None, "badiiy", "new", 4.8, "Yangi", "success", "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&auto=format&fit=crop&q=80", 10, "O'z taqdirini qidirayotgan va orzulari ortidan ketgan Santyago ismli cho'pon yigitning ma'naviy va ilhomlantiruvchi sarguzashtlari.")
         ]
         cursor.executemany('''
-            INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', initial_books)
 
         cursor.execute('''
@@ -514,7 +517,9 @@ def get_books():
     query = 'SELECT * FROM books WHERE 1=1'
     params = []
 
-    if category != 'all':
+    if category == 'discount':
+        query += ' AND (old_price > price OR type = "discount")'
+    elif category != 'all':
         query += ' AND category = ?'
         params.append(category)
 
@@ -704,6 +709,7 @@ def add_book():
     author = data.get('author')
     price = data.get('price')
     stock = int(data.get('stock', 10))
+    description = data.get('description', '').strip()
 
     if not title or not author or not price:
         return jsonify({"success": False, "message": "Sarlavha, muallif va narx shart!"}), 400
@@ -712,8 +718,8 @@ def add_book():
     cursor = conn.cursor()
 
     cursor.execute('''
-        INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO books (title, author, price, old_price, category, type, rating, tag, tag_type, image, stock, description)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         title,
         author,
@@ -725,7 +731,8 @@ def add_book():
         data.get('tag', 'Yangi'),
         data.get('tag_type', 'success'),
         data.get('image') or "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80",
-        stock
+        stock,
+        description
     ))
 
     conn.commit()
@@ -751,7 +758,8 @@ def update_book(book_id):
             category = ?,
             type = ?,
             image = ?,
-            stock = ?
+            stock = ?,
+            description = ?
         WHERE id = ?
     ''', (
         data.get('title'),
@@ -762,6 +770,7 @@ def update_book(book_id):
         data.get('type'),
         data.get('image'),
         int(data.get('stock', 10)),
+        data.get('description', '').strip(),
         book_id
     ))
 
@@ -833,6 +842,15 @@ def update_order_status(order_id=None):
 
     conn.commit()
     conn.close()
+
+    try:
+        socketio.emit('order_status_updated', {
+            'order_id': order_id,
+            'status': new_status
+        })
+    except Exception as e:
+        print("Socket emit error:", e)
+
     return jsonify({"success": True, "message": f"Status '{new_status}'ga o'zgartirildi va zaxira (soni) yangilandi!"})
 
 # Admin API: Buyurtmani o'chirish

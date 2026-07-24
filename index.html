@@ -974,7 +974,8 @@
                 </div>
 
                 <div id="qvPrice" style="font-size:1.3rem; font-weight:800; color:var(--primary); margin-bottom:6px;">0 so'm</div>
-                <div id="qvStock" style="font-size:0.85rem; font-weight:700; color:#059669; margin-bottom:14px;">📦 Zaxirada: 10 dona</div>
+                <div id="qvStock" style="font-size:0.85rem; font-weight:700; color:#059669; margin-bottom:12px;">📦 Zaxirada: 10 dona</div>
+                <div id="qvDescription" style="display:none; background:#f1f5f9; padding:10px 12px; border-radius:8px; border-left:4px solid var(--primary); font-size:0.88rem; margin-bottom:14px;"></div>
                 <button class="btn-buy" id="qvBuyBtn" style="background:var(--primary); color:white; padding:10px;">
                     🛒 Savatga Qo'shish
                 </button>
@@ -1139,6 +1140,7 @@
         <div class="container">
             <ul>
                 <li><a href="javascript:void(0)" class="active" onclick="filterCategory('all', this)">Barchasi</a></li>
+                <li><a href="javascript:void(0)" onclick="filterCategory('discount', this)" style="color: #ef4444; font-weight: 800;"><i class="fa-solid fa-fire"></i> Chegirmadagi Kitoblar</a></li>
                 <li><a href="javascript:void(0)" onclick="filterCategory('badiiy', this)">Badiiy adabiyot</a></li>
                 <li><a href="javascript:void(0)" onclick="filterCategory('diniy', this)">Diniy va Ma'rifiy</a></li>
                 <li><a href="javascript:void(0)" onclick="filterCategory('biznes', this)">Biznes va Muvaffaqiyat</a></li>
@@ -1296,9 +1298,23 @@
                     userSocket = io();
                     userSocket.emit('join_chat', { session_id: chatSessionId });
 
+                    userSocket.on('order_status_updated', (data) => {
+                        if (data && data.order_id) {
+                            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+                            const target = localOrders.find(o => o.order_id == data.order_id);
+                            if (target) {
+                                target.status = data.status;
+                                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+                            }
+                            if (document.getElementById('trackOrdersModal').classList.contains('active')) {
+                                fetchUserOrders();
+                            }
+                        }
+                    });
+                    
                     userSocket.on('receive_message', (msg) => {
-                        if (msg.session_id === chatSessionId) {
-                            appendUserChatMessage(msg);
+                        if (msg.session_id === chatSessionId && msg.sender === 'admin') {
+                            loadUserChatHistory();
                         }
                     });
                 }
@@ -1530,9 +1546,24 @@
                 const buyBtnAttr = isOutOfStock ? 'disabled style="background:#94a3b8; cursor:not-allowed; opacity:0.7;"' : '';
                 const buyBtnText = isOutOfStock ? 'Tugagan' : 'Savatga qo\'shish';
 
+                const hasDiscount = book.old_price && Number(book.old_price) > Number(book.price);
+                const discountPercent = hasDiscount ? Math.round(((Number(book.old_price) - Number(book.price)) / Number(book.old_price)) * 100) : 0;
+                
+                const discountBadgeHtml = hasDiscount ? `<div style="position:absolute; top:10px; left:10px; background:#ef4444; color:white; font-weight:800; font-size:0.8rem; padding:4px 8px; border-radius:8px; box-shadow:0 2px 6px rgba(239,68,68,0.4); z-index:2;">-${discountPercent}%</div>` : '';
+
+                const priceDisplayHtml = hasDiscount ? `
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="font-size:0.82rem; color:#94a3b8; text-decoration:line-through; font-weight:600;">${Number(book.old_price).toLocaleString()} so'm</span>
+                        <span class="book-price" style="margin-bottom:0; color:#ef4444; font-weight:800;">${Number(book.price).toLocaleString()} so'm</span>
+                    </div>
+                ` : `
+                    <div class="book-price" style="margin-bottom:0;">${Number(book.price).toLocaleString()} so'm</div>
+                `;
+
                 html += `
-                    <div class="book-card">
+                    <div class="book-card" style="position:relative;">
                         <div class="book-cover-wrap">
+                            ${discountBadgeHtml}
                             <img src="${book.image}" onerror="this.src='${fallbackImg}'" class="book-cover-img" alt="${book.title}">
                             <div class="quick-actions">
                                 <button class="btn-quick ${favClass}" title="Saralanganlarga saqlash" onclick="toggleFavorite(${book.id})"><i class="${favIcon}"></i></button>
@@ -1545,7 +1576,7 @@
                         <div class="book-title">${book.title}</div>
                         <div class="book-author">${book.author}</div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <div class="book-price" style="margin-bottom:0;">${book.price.toLocaleString()} so'm</div>
+                            ${priceDisplayHtml}
                             <div style="font-weight:700; font-size:0.85rem; color:#f59e0b; background:#fef3c7; padding:2px 8px; border-radius:12px;">
                                 <i class="fa-solid fa-star"></i> ${Number(book.rating || 5.0).toFixed(1)}
                             </div>
@@ -1652,8 +1683,35 @@
             document.getElementById('qvImage').src = book.image;
             document.getElementById('qvTitle').textContent = book.title;
             document.getElementById('qvAuthor').textContent = book.author;
-            document.getElementById('qvPrice').textContent = `${book.price.toLocaleString()} so'm`;
+            
+            const qvPriceEl = document.getElementById('qvPrice');
+            const hasDiscount = book.old_price && Number(book.old_price) > Number(book.price);
+            if (hasDiscount) {
+                const percent = Math.round(((Number(book.old_price) - Number(book.price)) / Number(book.old_price)) * 100);
+                const saveSum = Number(book.old_price) - Number(book.price);
+                qvPriceEl.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-size:1.4rem; font-weight:800; color:#ef4444;">${Number(book.price).toLocaleString()} so'm</span>
+                        <span style="font-size:1rem; color:#94a3b8; text-decoration:line-through; font-weight:600;">${Number(book.old_price).toLocaleString()} so'm</span>
+                        <span style="background:#ef4444; color:white; font-size:0.8rem; font-weight:800; padding:2px 8px; border-radius:6px;">-${percent}% Chegirma</span>
+                    </div>
+                    <div style="font-size:0.82rem; color:#10b981; font-weight:700; margin-top:2px;">💰 Tejamingiz: ${saveSum.toLocaleString()} so'm</div>
+                `;
+            } else {
+                qvPriceEl.innerHTML = `${Number(book.price).toLocaleString()} so'm`;
+            }
+
             document.getElementById('qvRatingText').textContent = `⭐ ${Number(book.rating || 5.0).toFixed(1)}`;
+
+            const qvDescEl = document.getElementById('qvDescription');
+            if (qvDescEl) {
+                if (book.description) {
+                    qvDescEl.innerHTML = `<strong>📝 Kitob haqida / Admin izohi:</strong><p style="margin-top:4px; color:#334155; line-height:1.5;">${book.description}</p>`;
+                    qvDescEl.style.display = 'block';
+                } else {
+                    qvDescEl.style.display = 'none';
+                }
+            }
 
             const stockVal = book.stock !== undefined ? book.stock : 10;
             const qvStockEl = document.getElementById('qvStock');
