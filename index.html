@@ -2270,24 +2270,38 @@
             const orderItems = [...cart];
 
             let newOrderId = Math.floor(1000 + Math.random() * 9000);
-            let isSavedLocally = false;
+            let savedToServer = false;
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/order`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, phone, address, payment_method, items: orderItems })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    if (data.order_id) newOrderId = data.order_id;
-                    showToast(data.message || "Buyurtmangiz muvaffaqiyatli saqlandi!");
+            showToast("⏳ Buyurtmangiz yuborilmoqda...");
+
+            // Try sending to backend (with retry for Render cold start)
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
+                    const response = await fetch(`${API_BASE_URL}/api/order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, phone, address, payment_method, items: orderItems }),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    const data = await response.json();
+                    if (data.success) {
+                        if (data.order_id) newOrderId = data.order_id;
+                        savedToServer = true;
+                        break;
+                    }
+                } catch (err) {
+                    console.log(`Attempt ${attempt} failed:`, err.message);
+                    if (attempt < 3) {
+                        showToast(`⏳ Server uyg'onmoqda... (${attempt}/3)`);
+                        await new Promise(r => setTimeout(r, 5000));
+                    }
                 }
-            } catch (err) {
-                console.log("Backend API offline, saving order to local storage");
             }
 
-            // Always persist new order to local storage for immediate static UI & tracking display
+            // Always save to localStorage for local tracking
             const newOrderObj = {
                 order_id: newOrderId,
                 customer_name: name,
@@ -2300,12 +2314,16 @@
                 status: 'Qabul qilindi',
                 created_at: new Date().toLocaleString()
             };
-
             const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
             localOrders.unshift(newOrderObj);
             localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
 
-            alert(`Buyurtmangiz #${newOrderId} raqami bilan muvaffaqiyatli saqlandi!`);
+            if (savedToServer) {
+                alert(`✅ Buyurtmangiz #${newOrderId} muvaffaqiyatli saqlandi!\nAdmin panel yangilanadi.`);
+            } else {
+                alert(`⚠️ Buyurtmangiz #${newOrderId} qabul qilindi, lekin server bilan bog'lanishda muammo bo'ldi.\nIltimos, bir ozdan so'ng tekshirib ko'ring.`);
+            }
+
             cart = [];
             updateCartUI();
             closeAllModals();

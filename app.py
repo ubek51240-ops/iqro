@@ -1008,6 +1008,7 @@ def create_order():
 
     try:
         socketio.emit('new_order', order_payload, room='admin_room')
+        socketio.emit('new_order', order_payload)  # broadcast fallback
     except Exception as e:
         print("Socket order emit error:", e)
 
