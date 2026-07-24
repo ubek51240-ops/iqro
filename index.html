@@ -973,7 +973,8 @@
                     <span id="qvRatingText" style="font-weight:800; font-size:0.95rem; color:#0f172a;">⭐ 5.0</span>
                 </div>
 
-                <div id="qvPrice" style="font-size:1.3rem; font-weight:800; color:var(--primary); margin-bottom:14px;">0 so'm</div>
+                <div id="qvPrice" style="font-size:1.3rem; font-weight:800; color:var(--primary); margin-bottom:6px;">0 so'm</div>
+                <div id="qvStock" style="font-size:0.85rem; font-weight:700; color:#059669; margin-bottom:14px;">📦 Zaxirada: 10 dona</div>
                 <button class="btn-buy" id="qvBuyBtn" style="background:var(--primary); color:white; padding:10px;">
                     🛒 Savatga Qo'shish
                 </button>
@@ -1029,14 +1030,14 @@
         </div>
         <form onsubmit="handleLoginSubmit(event)">
             <div class="form-group">
-                <label>Email yoki Telefon</label>
-                <input type="email" id="loginEmail" placeholder="user@iqro.uz" required>
+                <label>Telefon raqam yoki Email</label>
+                <input type="text" id="loginEmail" placeholder="+998 90 123 45 67 yoki user@iqro.uz" required>
             </div>
             <div class="form-group">
                 <label>Parol</label>
-                <input type="password" id="loginPassword" placeholder="******" required>
+                <input type="password" id="loginPassword" placeholder="••••••••" required>
             </div>
-            <button type="submit" class="btn-action btn-cart-primary" style="width:100%;">Kirish</button>
+            <button type="submit" class="btn-action btn-cart-primary" style="width:100%;">Kirish / Ro'yxatdan o'tish</button>
         </form>
     </div>
 
@@ -1064,7 +1065,7 @@
             </div>
             <div class="form-group">
                 <label>Telefon Raqamingiz</label>
-                <input type="tel" id="orderPhone" placeholder="+998 94 959 36 33" required>
+                <input type="tel" id="orderPhone" placeholder="+998 00 000 00 00" required>
             </div>
             <div class="form-group">
                 <label>Yetkazib berish manzili</label>
@@ -1266,6 +1267,24 @@
             currentUser = null;
             userFavorites = [];
             localStorage.removeItem('iqro_logged_user');
+
+            // Reset chat session & clear user chat storage on logout
+            if (chatSessionId) {
+                localStorage.removeItem(`iqro_chat_msgs_${chatSessionId}`);
+                localStorage.removeItem('iqro_chat_session_id');
+            }
+            if (userSocket) {
+                try { userSocket.disconnect(); } catch (e) {}
+                userSocket = null;
+            }
+            chatSessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('iqro_chat_session_id', chatSessionId);
+
+            const msgBox = document.getElementById('userChatMessages');
+            if (msgBox) {
+                msgBox.innerHTML = '<div style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-top:20px;">Assalomu alaykum! Savollaringiz bo\'lsa, shu yerga yozishingiz mumkin.</div>';
+            }
+
             updateUserUI();
             fetchBooks();
             showToast("Profildan chiqdingiz!");
@@ -1409,7 +1428,10 @@
             };
 
             try {
-                if (typeof userSocket !== 'undefined' && userSocket && userSocket.connected) {
+                if (!userSocket || !userSocket.connected) {
+                    initUserSocket();
+                }
+                if (userSocket) {
                     userSocket.emit('send_message', {
                         session_id: chatSessionId,
                         ...newMsg
@@ -1500,6 +1522,14 @@
                 const badgeHtml = commentCount > 0 ? `<span class="comment-badge-count">${commentCount}</span>` : '';
                 const fallbackImg = "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&q=80";
 
+                const stockCount = book.stock !== undefined ? book.stock : 10;
+                const stockBadgeClass = stockCount > 5 ? 'color:#059669; background:#d1fae5;' : (stockCount > 0 ? 'color:#d97706; background:#fef3c7;' : 'color:#dc2626; background:#fee2e2;');
+                const stockText = stockCount > 0 ? `Zaxirada: ${stockCount} dona` : `Tugagan`;
+
+                const isOutOfStock = stockCount <= 0;
+                const buyBtnAttr = isOutOfStock ? 'disabled style="background:#94a3b8; cursor:not-allowed; opacity:0.7;"' : '';
+                const buyBtnText = isOutOfStock ? 'Tugagan' : 'Savatga qo\'shish';
+
                 html += `
                     <div class="book-card">
                         <div class="book-cover-wrap">
@@ -1520,7 +1550,10 @@
                                 <i class="fa-solid fa-star"></i> ${Number(book.rating || 5.0).toFixed(1)}
                             </div>
                         </div>
-                        <button class="btn-buy" onclick="addToCart('${book.title.replace(/'/g, "\\'")}', ${book.price})">Savatga qo'shish</button>
+                        <div style="font-size:0.82rem; font-weight:700; padding:4px 10px; border-radius:12px; display:inline-block; margin-bottom:12px; ${stockBadgeClass}">
+                            📦 ${stockText}
+                        </div>
+                        <button class="btn-buy" ${buyBtnAttr} onclick="addToCart('${book.title.replace(/'/g, "\\'")}', ${book.price})">${buyBtnText}</button>
                     </div>
                 `;
             });
@@ -1622,6 +1655,18 @@
             document.getElementById('qvPrice').textContent = `${book.price.toLocaleString()} so'm`;
             document.getElementById('qvRatingText').textContent = `⭐ ${Number(book.rating || 5.0).toFixed(1)}`;
 
+            const stockVal = book.stock !== undefined ? book.stock : 10;
+            const qvStockEl = document.getElementById('qvStock');
+            if (qvStockEl) {
+                if (stockVal > 0) {
+                    qvStockEl.textContent = `📦 Zaxirada: ${stockVal} dona mavjud`;
+                    qvStockEl.style.color = '#059669';
+                } else {
+                    qvStockEl.textContent = `❌ Hozircha sotuvda tugagan`;
+                    qvStockEl.style.color = '#dc2626';
+                }
+            }
+
             if (currentUser) {
                 document.getElementById('commentUserName').value = currentUser.name;
             } else {
@@ -1629,10 +1674,24 @@
             }
             
             const qvBuyBtn = document.getElementById('qvBuyBtn');
-            qvBuyBtn.onclick = function() {
-                addToCart(book.title, book.price);
-                closeAllModals();
-            };
+            if (stockVal <= 0) {
+                qvBuyBtn.disabled = true;
+                qvBuyBtn.style.background = '#94a3b8';
+                qvBuyBtn.style.cursor = 'not-allowed';
+                qvBuyBtn.style.opacity = '0.7';
+                qvBuyBtn.textContent = '❌ Sotuvda Tugagan';
+                qvBuyBtn.onclick = null;
+            } else {
+                qvBuyBtn.disabled = false;
+                qvBuyBtn.style.background = 'var(--primary)';
+                qvBuyBtn.style.cursor = 'pointer';
+                qvBuyBtn.style.opacity = '1';
+                qvBuyBtn.textContent = '🛒 Savatga Qo\'shish';
+                qvBuyBtn.onclick = function() {
+                    addToCart(book.title, book.price);
+                    closeAllModals();
+                };
+            }
 
             renderComments(book.comments || []);
             document.getElementById('quickViewModal').classList.add('active');
@@ -1901,7 +1960,22 @@
         }
 
         function addToCart(title, price) {
+            const targetBook = allBooksList.find(b => b.title === title);
+            const stockCount = targetBook && targetBook.stock !== undefined ? targetBook.stock : 10;
+
+            if (stockCount <= 0) {
+                alert(`Ushbu kitob ("${title}") hozircha sotuvda tugagan, savatga qo'shib bo'lmaydi!`);
+                return;
+            }
+
             const existingItem = cart.find(item => item.title === title);
+            const currentQtyInCart = existingItem ? existingItem.quantity : 0;
+
+            if (currentQtyInCart + 1 > stockCount) {
+                alert(`Kechirasiz, mavjud zaxirada faqat ${stockCount} dona kitob bor!`);
+                return;
+            }
+
             if (existingItem) {
                 existingItem.quantity += 1;
             } else {
@@ -1967,8 +2041,13 @@
 
         async function handleLoginSubmit(event) {
             event.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            if (!email || !password) {
+                alert("Iltimos, telefon/email va parolni kiriting!");
+                return;
+            }
 
             try {
                 const response = await fetch('/api/login', {
@@ -1978,7 +2057,7 @@
                 });
 
                 const data = await response.json();
-                if (data.success) {
+                if (response.ok && data.success) {
                     currentUser = data.user;
                     userFavorites = currentUser.favorites || [];
                     
@@ -1986,11 +2065,32 @@
                     localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
                     
                     updateUserUI();
-                    showToast(data.message);
+                    showToast(data.message || "Tizimga muvaffaqiyatli kirdingiz!");
                     closeAllModals();
                     renderBooks(allBooksList);
+                    return;
+                } else if (data.message) {
+                    alert(data.message);
+                    return;
                 }
-            } catch (err) { alert("Xatolik!"); }
+            } catch (err) {
+                console.log("Backend API unreachable, using static client-side authentication login mode");
+            }
+
+            const rawName = email.includes('@') ? email.split('@')[0] : (email || "Foydalanuvchi");
+            const userName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+            currentUser = {
+                name: userName,
+                email: email,
+                phone: email.includes('@') ? "+998 90 000-00-00" : email,
+                favorites: []
+            };
+
+            localStorage.setItem('iqro_logged_user', JSON.stringify(currentUser));
+            updateUserUI();
+            showToast("Tizimga muvaffaqiyatli kirdingiz!");
+            closeAllModals();
+            renderBooks(allBooksList);
         }
 
         function openTrackModal() {
@@ -2003,27 +2103,49 @@
         }
 
         async function fetchUserOrders() {
-            const listDiv = document.getElementById('trackOrdersList');
-            const searchPhone = currentUser ? currentUser.phone : lastUserPhone;
+            let userOrders = [];
+            const searchPhones = new Set();
+            const searchNames = new Set();
 
-            if (!searchPhone) {
-                renderOrdersList([]);
-                return;
+            if (currentUser) {
+                if (currentUser.phone) searchPhones.add(currentUser.phone.trim());
+                if (currentUser.email) searchPhones.add(currentUser.email.trim());
+                if (currentUser.name && currentUser.name !== "Mehmon") searchNames.add(currentUser.name.trim().toLowerCase());
+            }
+            if (lastUserPhone) searchPhones.add(lastUserPhone.trim());
+
+            const phoneList = Array.from(searchPhones);
+
+            if (phoneList.length > 0) {
+                try {
+                    const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(phoneList[0])}&email=${encodeURIComponent(phoneList[1] || '')}`);
+                    const data = await res.json();
+                    if (data.success && data.orders) {
+                        userOrders = data.orders;
+                    }
+                } catch (err) { console.error("Order track fetch error:", err); }
             }
 
-            try {
-                const res = await fetch(`/api/orders/track?phone=${encodeURIComponent(searchPhone)}`);
-                const data = await res.json();
-                if (data.success) {
-                    renderOrdersList(data.orders);
-                    return;
-                }
-            } catch (err) { console.error("Order track fetch error:", err); }
-
-            // Local fallback orders - filter strictly by searchPhone
+            // Local fallback orders - match all past orders for logged in user (by phone, email, or customer_name)
             const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            const userOrders = localOrders.filter(o => o.phone === searchPhone);
-            renderOrdersList(userOrders);
+            const localMatching = localOrders.filter(o => {
+                if (searchPhones.size > 0 && o.phone && searchPhones.has(o.phone.trim())) return true;
+                if (searchPhones.size > 0 && o.email && searchPhones.has(o.email.trim())) return true;
+                if (searchNames.size > 0 && o.customer_name && searchNames.has(o.customer_name.trim().toLowerCase())) return true;
+                return false;
+            });
+
+            // Merge server and local orders (server orders take priority for updated status)
+            const orderMap = new Map();
+            localMatching.forEach(o => {
+                orderMap.set(o.order_id, o);
+            });
+            userOrders.forEach(o => {
+                orderMap.set(o.order_id, o); // Overwrites local order with fresh server status
+            });
+
+            const allUserOrders = Array.from(orderMap.values()).sort((a, b) => (b.order_id || 0) - (a.order_id || 0));
+            renderOrdersList(allUserOrders);
         }
 
         function renderOrdersList(orders) {
@@ -2035,9 +2157,9 @@
             let html = '';
             orders.forEach(o => {
                 let badgeClass = 'status-qabul';
-                if (o.status === "Yig'ilmoqda") badgeClass = 'status-yigilmoqda';
-                else if (o.status === "Yuborildi") badgeClass = 'status-yuborildi';
-                else if (o.status === "Yetkazib berildi") badgeClass = 'status-yetkazildi';
+                if (o.status && o.status.includes("Yig'il")) badgeClass = 'status-yigilmoqda';
+                else if (o.status && o.status.includes('Yubor')) badgeClass = 'status-yuborildi';
+                else if (o.status && o.status.includes('Yetkaz')) badgeClass = 'status-yetkazildi';
 
                 const itemsList = o.items.map(i => `${i.title} (${i.quantity}x)`).join(', ');
                 html += `
@@ -2057,59 +2179,69 @@
         function openCheckoutModal() {
             if (cart.length === 0) { alert("Savatingiz bo'sh!"); return; }
             closeAllModals();
-            if (currentUser) {
+            if (currentUser && currentUser.name !== "Mehmon") {
                 document.getElementById('orderName').value = currentUser.name;
-                document.getElementById('orderPhone').value = currentUser.phone;
+            } else {
+                document.getElementById('orderName').value = '';
             }
+            document.getElementById('orderPhone').value = '';
             document.getElementById('checkoutModal').classList.add('active');
             document.getElementById('overlay').classList.add('active');
         }
 
         async function handleCheckoutSubmit(event) {
             event.preventDefault();
-            const name = document.getElementById('orderName').value;
-            const phone = document.getElementById('orderPhone').value;
-            const address = document.getElementById('orderAddress').value;
+            const name = document.getElementById('orderName').value.trim();
+            const phone = document.getElementById('orderPhone').value.trim();
+            const address = document.getElementById('orderAddress').value.trim();
             const payment_method = document.getElementById('orderPayment').value;
-            lastUserPhone = phone;
 
+            if (!name || !phone || !address) {
+                alert("Iltimos, barcha maydonlarni (ism, telefon va manzil) to'ldiring!");
+                return;
+            }
+
+            lastUserPhone = phone;
             const totalSum = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const orderItems = [...cart];
+
+            let newOrderId = Math.floor(1000 + Math.random() * 9000);
+            let isSavedLocally = false;
 
             try {
                 const response = await fetch('/api/order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, phone, address, payment_method, items: cart })
+                    body: JSON.stringify({ name, phone, address, payment_method, items: orderItems })
                 });
                 const data = await response.json();
                 if (data.success) {
-                    alert(data.message);
-                    cart = [];
-                    updateCartUI();
-                    closeAllModals();
-                    openTrackModal();
-                    return;
+                    if (data.order_id) newOrderId = data.order_id;
+                    showToast(data.message || "Buyurtmangiz muvaffaqiyatli saqlandi!");
                 }
-            } catch (err) { console.error("Checkout submit error:", err); }
+            } catch (err) {
+                console.log("Backend API offline, saving order to local storage");
+            }
 
-            // Backend ulanmagan statik namoyish rejimida buyurtmani saqlash:
-            const newOrder = {
-                order_id: Math.floor(1000 + Math.random() * 9000),
+            // Always persist new order to local storage for immediate static UI & tracking display
+            const newOrderObj = {
+                order_id: newOrderId,
                 customer_name: name,
                 phone: phone,
+                email: currentUser ? currentUser.email : '',
                 address: address,
                 payment_method: payment_method,
-                items: [...cart],
+                items: orderItems,
                 total_price: totalSum,
                 status: 'Qabul qilindi',
                 created_at: new Date().toLocaleString()
             };
 
             const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            localOrders.unshift(newOrder);
+            localOrders.unshift(newOrderObj);
             localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
 
-            alert("Buyurtmangiz muvaffaqiyatli qabul qilindi!");
+            alert(`Buyurtmangiz #${newOrderId} raqami bilan muvaffaqiyatli saqlandi!`);
             cart = [];
             updateCartUI();
             closeAllModals();
@@ -2154,8 +2286,53 @@
             fetchBooks();
         }
 
+        async function fetchSettings() {
+            let settings = {};
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.settings) {
+                    settings = data.settings;
+                    localStorage.setItem('iqro_store_settings', JSON.stringify(data.settings));
+                }
+            } catch (e) {}
+
+            if (!settings || !settings.store_address) {
+                settings = JSON.parse(localStorage.getItem('iqro_store_settings') || '{}');
+            }
+
+            if (settings.store_address) {
+                const addressEl = document.getElementById('footerAddressText');
+                if (addressEl) addressEl.textContent = settings.store_address;
+            }
+            if (settings.maps_url) {
+                const mapsEl = document.getElementById('footerMapsLink');
+                if (mapsEl) mapsEl.href = settings.maps_url;
+            }
+            if (settings.email_address) {
+                const emailEl = document.getElementById('footerEmail');
+                if (emailEl) {
+                    emailEl.textContent = settings.email_address;
+                    emailEl.href = `mailto:${settings.email_address}`;
+                }
+            }
+            if (settings.phone_number) {
+                const phoneEl = document.getElementById('footerPhone');
+                const topPhoneEl = document.getElementById('topBarPhone');
+                if (phoneEl) {
+                    phoneEl.textContent = settings.phone_number;
+                    phoneEl.href = `tel:${settings.phone_number.replace(/\s+/g, '')}`;
+                }
+                if (topPhoneEl) {
+                    topPhoneEl.textContent = settings.phone_number;
+                    topPhoneEl.href = `tel:${settings.phone_number.replace(/\s+/g, '')}`;
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             checkSavedUserSession();
+            initUserSocket();
             fetchSettings();
             fetchBooks();
         });

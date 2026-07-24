@@ -1318,10 +1318,19 @@
 
             <!-- 3. ORDERS SECTION -->
             <section id="ordersTab" class="section-pane">
-                <div class="controls-bar">
-                    <div class="search-box">
+                <div class="controls-bar" style="display: flex; gap: 14px; flex-wrap: wrap;">
+                    <div class="search-box" style="flex: 1; min-width: 240px;">
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <input type="text" id="orderSearchInput" placeholder="Mijoz ismi yoki telefon..." oninput="filterOrders()">
+                    </div>
+                    <div class="filter-box" style="min-width: 200px;">
+                        <select id="orderStatusFilter" onchange="filterOrders()" style="width: 100%; padding: 12px 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: var(--radius-md); color: white; outline: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;">
+                            <option value="all" style="background: #0f172a; color: white;">Barcha statuslar</option>
+                            <option value="Qabul qilindi" style="background: #0f172a; color: white;">Qabul qilindi</option>
+                            <option value="Yig'ilmoqda" style="background: #0f172a; color: white;">Yig'ilmoqda</option>
+                            <option value="Yuborildi" style="background: #0f172a; color: white;">Yuborildi</option>
+                            <option value="Yetkazildi" style="background: #0f172a; color: white;">Yetkazildi</option>
+                        </select>
                     </div>
                 </div>
 
@@ -1332,6 +1341,7 @@
                                 <th>ID</th>
                                 <th>Mijoz Nomi</th>
                                 <th>Telefon</th>
+                                <th>Buyurtma qilingan Kitoblar</th>
                                 <th>To'lov Turi</th>
                                 <th>Summa</th>
                                 <th>Sana</th>
@@ -1359,9 +1369,14 @@
                         </div>
                     </div>
                     <div class="chat-main-area">
-                        <div class="chat-header" id="activeChatHeader">
-                            <i class="fa-solid fa-circle-user" style="font-size: 1.5rem; color: var(--accent);"></i>
-                            <span id="activeChatName">Mijoz tanlanmagan</span>
+                        <div class="chat-header" id="activeChatHeader" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-circle-user" style="font-size: 1.5rem; color: var(--accent);"></i>
+                                <span id="activeChatName">Mijoz tanlanmagan</span>
+                            </div>
+                            <button id="deleteChatBtn" onclick="deleteActiveChatSession()" style="display: none; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
+                                <i class="fa-solid fa-trash" style="margin-right: 6px;"></i> Chatni o'chirish
+                            </button>
                         </div>
                         <div class="chat-messages" id="chatMessagesBox">
                             <div style="text-align: center; color: var(--text-muted); margin-top: 100px;">
@@ -1703,8 +1718,16 @@
             document.querySelectorAll('.menu-link').forEach(link => link.classList.remove('active'));
             document.querySelectorAll('.section-pane').forEach(pane => pane.classList.remove('active'));
 
+            if (!el) {
+                el = document.querySelector(`.menu-link[onclick*="${tabId}"]`);
+            }
             if (el) el.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
+
+            const pane = document.getElementById(tabId);
+            if (pane) pane.classList.add('active');
+
+            localStorage.setItem('iqro_admin_active_tab', tabId);
+            window.location.hash = tabId;
 
             const titles = {
                 'dashboardTab': ['Boshqaruv Paneli', 'Platformangizning umumiy holati va statistikasi'],
@@ -1730,6 +1753,17 @@
             loadSettings();
             loadChatHistory();
             loadAdminComments();
+            restoreActiveTab();
+        }
+
+        function restoreActiveTab() {
+            const hashTab = window.location.hash ? window.location.hash.replace('#', '') : null;
+            const savedTab = localStorage.getItem('iqro_admin_active_tab');
+            const targetTab = hashTab || savedTab || 'dashboardTab';
+
+            if (document.getElementById(targetTab)) {
+                switchTab(targetTab);
+            }
         }
 
         // Load and Render Comments for Admin Reply
@@ -1980,56 +2014,44 @@
 
         function renderOrders(orders) {
             const tbody = document.getElementById('ordersTableBody');
-            tbody.innerHTML = orders.map(o => `
-                <tr>
-                    <td style="font-weight: 800;">#${o.order_id}</td>
-                    <td style="font-weight: 700; color: white;">${o.customer_name}</td>
-                    <td>${o.phone}</td>
-                    <td><span class="badge-cat" style="background: rgba(255,255,255,0.05); color: #cbd5e1; border: 1px solid var(--border);">${o.payment_method}</span></td>
-                    <td class="price-text">${Number(o.total_price).toLocaleString()} UZS</td>
-                    <td style="font-size: 0.85rem; color: var(--text-muted);">${o.created_at || ''}</td>
-                    <td>
-                        <select class="status-select ${getStatusClass(o.status)}" onchange="updateOrderStatus(${o.order_id}, this.value)">
-                            <option value="Qabul qilindi" ${o.status === 'Qabul qilindi' ? 'selected' : ''}>Qabul qilindi</option>
-                            <option value="Yig'ilmoqda" ${o.status === 'Yig\'ilmoqda' ? 'selected' : ''}>Yig'ilmoqda</option>
-                            <option value="Yuborildi" ${o.status === 'Yuborildi' ? 'selected' : ''}>Yuborildi</option>
-                            <option value="Yetkazildi" ${o.status === 'Yetkazildi' ? 'selected' : ''}>Yetkazildi</option>
-                        </select>
-                    </td>
-                    <td>
-                        <button class="btn-action-icon btn-delete" onclick="deleteOrder(${o.order_id})"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = orders.map(o => {
+                const itemsStr = (o.items || []).map(i => `<span style="display:inline-block; background:rgba(79, 70, 229, 0.15); color:#a5b4fc; padding:2px 8px; border-radius:6px; font-size:0.82rem; margin:2px 0;">📖 ${i.title} <strong>(${i.quantity}x)</strong></span>`).join('<br>');
+
+                return `
+                    <tr>
+                        <td style="font-weight: 800; color: var(--primary-light);">#${o.order_id}</td>
+                        <td style="font-weight: 700; color: white;">${o.customer_name}</td>
+                        <td>${o.phone}</td>
+                        <td>${itemsStr || '<span style="color:var(--text-muted);">Ma\'lumot yo\'q</span>'}</td>
+                        <td><span class="badge-cat" style="background: rgba(255,255,255,0.05); color: #cbd5e1; border: 1px solid var(--border);">${o.payment_method}</span></td>
+                        <td class="price-text">${Number(o.total_price).toLocaleString()} UZS</td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${o.created_at || ''}</td>
+                        <td>
+                            <select class="status-select ${getStatusClass(o.status)}" onchange="updateOrderStatus(${o.order_id}, this.value)">
+                                <option value="Qabul qilindi" ${o.status === 'Qabul qilindi' ? 'selected' : ''}>Qabul qilindi</option>
+                                <option value="Yig'ilmoqda" ${o.status === "Yig'ilmoqda" ? 'selected' : ''}>Yig'ilmoqda</option>
+                                <option value="Yuborildi" ${o.status === 'Yuborildi' ? 'selected' : ''}>Yuborildi</option>
+                                <option value="Yetkazildi" ${o.status === 'Yetkazildi' ? 'selected' : ''}>Yetkazildi</option>
+                            </select>
+                        </td>
+                        <td>
+                            <button class="btn-action-icon btn-delete" onclick="deleteOrder(${o.order_id})" title="O'chirish"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function filterOrders() {
-            const q = document.getElementById('orderSearchInput').value.toLowerCase();
-            const filtered = allOrders.filter(o => o.customer_name.toLowerCase().includes(q) || o.phone.includes(q));
+            const q = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('orderStatusFilter') ? document.getElementById('orderStatusFilter').value : 'all';
+
+            const filtered = allOrders.filter(o => {
+                const matchesQuery = !q || (o.customer_name && o.customer_name.toLowerCase().includes(q)) || (o.phone && o.phone.includes(q)) || (o.order_id && o.order_id.toString().includes(q));
+                const matchesStatus = (statusFilter === 'all') || (o.status && o.status === statusFilter);
+                return matchesQuery && matchesStatus;
+            });
             renderOrders(filtered);
-        }
-
-        async function updateOrderStatus(orderId, newStatus) {
-            try {
-                const res = await fetch('/api/admin/orders/update-status', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ order_id: orderId, status: newStatus })
-                });
-                if (res.ok) {
-                    loadOrders();
-                    return;
-                }
-            } catch (e) {}
-
-            // Static fallback
-            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            const order = localOrders.find(o => o.order_id == orderId);
-            if (order) {
-                order.status = newStatus;
-                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
-            }
-            loadOrders();
         }
 
         async function deleteOrder(orderId) {
@@ -2073,6 +2095,26 @@
         async function updateOrderStatus(orderId, newStatus) {
             let previousStatus = null;
 
+            // Sync local storage immediately for static client window sync
+            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
+            const localOrder = localOrders.find(o => o.order_id == orderId);
+            if (localOrder) {
+                previousStatus = localOrder.status;
+                localOrder.status = newStatus;
+                
+                if (newStatus === "Yig'ilmoqda" && previousStatus !== "Yig'ilmoqda") {
+                    const localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
+                    (localOrder.items || []).forEach(item => {
+                        const targetBook = localBooks.find(b => b.title === item.title);
+                        if (targetBook) {
+                            targetBook.stock = Math.max(0, (targetBook.stock !== undefined ? targetBook.stock : 10) - Number(item.quantity || 1));
+                        }
+                    });
+                    localStorage.setItem('iqro_custom_books', JSON.stringify(localBooks));
+                }
+                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
+            }
+
             try {
                 const res = await fetch('/api/admin/orders/update-status', {
                     method: 'POST',
@@ -2086,25 +2128,6 @@
                 }
             } catch (e) {}
 
-            // Static fallback for Netlify mode (subtract stock on status Yig'ilmoqda)
-            const localOrders = JSON.parse(localStorage.getItem('iqro_local_orders') || '[]');
-            const order = localOrders.find(o => o.order_id == orderId);
-            if (order) {
-                previousStatus = order.status;
-                order.status = newStatus;
-                localStorage.setItem('iqro_local_orders', JSON.stringify(localOrders));
-
-                if (newStatus === "Yig'ilmoqda" && previousStatus !== "Yig'ilmoqda") {
-                    const localBooks = JSON.parse(localStorage.getItem('iqro_custom_books') || '[]');
-                    (order.items || []).forEach(item => {
-                        const targetBook = localBooks.find(b => b.title === item.title);
-                        if (targetBook) {
-                            targetBook.stock = Math.max(0, (targetBook.stock !== undefined ? targetBook.stock : 10) - Number(item.quantity || 1));
-                        }
-                    });
-                    localStorage.setItem('iqro_custom_books', JSON.stringify(localBooks));
-                }
-            }
             loadOrders();
             loadBooks();
         }
@@ -2201,15 +2224,23 @@
             try {
                 const res = await fetch('/api/settings');
                 const data = await res.json();
-                if (data.settings) {
+                if (data.settings && data.settings.store_address) {
                     document.getElementById('settingAddress').value = data.settings.store_address || '';
                     document.getElementById('settingPhone').value = data.settings.phone_number || '';
                     document.getElementById('settingEmail').value = data.settings.email_address || '';
                     document.getElementById('settingMaps').value = data.settings.maps_url || '';
+                    return;
                 }
             } catch (e) {
-                console.error(e);
+                console.log("Backend offline, using localStorage settings fallback");
             }
+
+            // Fallback for Netlify / Static hosting mode
+            const localSettings = JSON.parse(localStorage.getItem('iqro_store_settings') || '{}');
+            document.getElementById('settingAddress').value = localSettings.store_address || "Buxoro shahar, Mustaqillik ko'chasi 12";
+            document.getElementById('settingPhone').value = localSettings.phone_number || "+998 90 123-45-67";
+            document.getElementById('settingEmail').value = localSettings.email_address || "info@iqro.uz";
+            document.getElementById('settingMaps').value = localSettings.maps_url || "https://maps.google.com/?q=Bukhara";
         }
 
         async function saveStoreSettings(e) {
@@ -2221,13 +2252,25 @@
                 maps_url: document.getElementById('settingMaps').value
             };
 
-            const res = await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            alert(data.message || 'Sozlamalar saqlandi!');
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('iqro_store_settings', JSON.stringify(payload));
+                    alert(data.message || "Do'kon ma'lumotlari muvaffaqiyatli saqlandi!");
+                    return;
+                }
+            } catch (e) {
+                console.log("Backend offline, saving settings to localStorage");
+            }
+
+            // Save to localStorage for Netlify static mode
+            localStorage.setItem('iqro_store_settings', JSON.stringify(payload));
+            alert("Do'kon ma'lumotlari muvaffaqiyatli saqlandi!");
         }
 
         async function changeAdminCredentials(e) {
@@ -2307,9 +2350,12 @@
                 const unreadBadgeHtml = unreadCount > 0 ? `<span class="session-unread-badge">${unreadCount}</span>` : '';
 
                 return `
-                    <div class="session-item ${active}" onclick="selectChatSession('${sid}', '${displayName}')">
-                        <div class="session-name">
-                            ${displayName} ${unreadBadgeHtml}
+                    <div class="session-item ${active}" onclick="selectChatSession('${sid}', '${displayName}')" style="position: relative;">
+                        <div class="session-name" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>${displayName} ${unreadBadgeHtml}</span>
+                            <button onclick="deleteChatSessionItem(event, '${sid}')" title="Suhbatni o'chirish" style="background: none; border: none; color: #ef4444; opacity: 0.7; cursor: pointer; padding: 2px 6px; border-radius: 4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
                         </div>
                         <div class="session-last-msg">${lastMsg ? lastMsg.message : ''}</div>
                     </div>
@@ -2334,6 +2380,8 @@
             currentChatSessionId = sid;
             activeChatUserName = userName;
             document.getElementById('activeChatName').innerText = userName || 'Foydalanuvchi';
+            const delBtn = document.getElementById('deleteChatBtn');
+            if (delBtn) delBtn.style.display = 'inline-flex';
 
             // Mark session messages as read in memory
             if (chatSessions[sid] && chatSessions[sid].messages) {
@@ -2364,6 +2412,49 @@
                 </div>
             `).join('');
             box.scrollTop = box.scrollHeight;
+        }
+
+        async function deleteActiveChatSession() {
+            if (!currentChatSessionId) return;
+            if (confirm(`"${activeChatUserName || 'Mijoz'}" bilan bo'lgan barcha suhbatni o'chirib tashlamoqchimisiz?`)) {
+                await performDeleteChatSession(currentChatSessionId);
+            }
+        }
+
+        async function deleteChatSessionItem(event, sid) {
+            if (event) event.stopPropagation();
+            const sess = chatSessions[sid];
+            const name = sess ? sess.user_name || 'Mijoz' : 'Mijoz';
+            if (confirm(`"${name}" bilan bo'lgan suhbatni o'chirib tashlamoqchimisiz?`)) {
+                await performDeleteChatSession(sid);
+            }
+        }
+
+        async function performDeleteChatSession(sid) {
+            try {
+                await fetch(`/api/admin/chat-sessions/${sid}`, { method: 'DELETE' });
+            } catch (e) {}
+
+            // LocalStorage clean up
+            localStorage.removeItem(`iqro_chat_msgs_${sid}`);
+
+            delete chatSessions[sid];
+
+            if (currentChatSessionId === sid) {
+                currentChatSessionId = null;
+                activeChatUserName = null;
+                document.getElementById('activeChatName').innerText = 'Mijoz tanlanmagan';
+                const delBtn = document.getElementById('deleteChatBtn');
+                if (delBtn) delBtn.style.display = 'none';
+                document.getElementById('chatMessagesBox').innerHTML = `
+                    <div style="text-align: center; color: var(--text-muted); margin-top: 100px;">
+                        Suhbatni boshlash uchun chap tomondan mijozni tanlang
+                    </div>
+                `;
+            }
+
+            renderChatSessions();
+            alert("Chat suhbati muvaffaqiyatli o'chirildi!");
         }
 
         function appendChatMessage(msg) {

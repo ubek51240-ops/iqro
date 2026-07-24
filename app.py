@@ -7,6 +7,15 @@ import json
 import time
 from datetime import datetime, date
 from werkzeug.utils import secure_filename
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return jsonify({"success": False, "message": "Ruxsat berilmadi! Admin tizimiga kiring."}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 app = Flask(__name__, static_folder='.')
 app.secret_key = 'iqro_admin_super_secret_key_2026'
@@ -194,6 +203,7 @@ def get_settings():
     return jsonify({"success": True, "settings": settings_dict})
 
 @app.route('/api/admin/settings', methods=['POST'])
+@admin_required
 def update_settings():
     data = request.get_json() or {}
     store_address = data.get('store_address', '').strip()
@@ -245,10 +255,8 @@ def admin_login():
         return jsonify({"success": False, "message": "Login yoki parol noto'g'ri!"}), 401
 
 @app.route('/api/admin/change-credentials', methods=['POST'])
+@admin_required
 def change_admin_credentials():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False, "message": "Ruxsat berilmadi!"}), 403
-
     data = request.get_json() or {}
     old_password = data.get('old_password', '').strip()
     new_username = data.get('new_username', '').strip()
@@ -288,6 +296,7 @@ def admin_logout():
 
 # Admin API: Chat sessiyalar va o'qilmagan xabarlar soni
 @app.route('/api/admin/chat-sessions', methods=['GET'])
+@admin_required
 def get_chat_sessions():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -329,6 +338,7 @@ def get_chat_sessions():
     return jsonify({"success": True, "sessions": sessions, "total_unread": total_unread})
 
 @app.route('/api/admin/chat-history', methods=['GET'])
+@admin_required
 def get_admin_chat_history():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -343,7 +353,7 @@ def get_admin_chat_history():
     session_index_map = {sid: idx + 1 for idx, sid in enumerate(session_order)}
 
     cursor.execute('''
-        SELECT chat_session_id, user_name, sender, message, timestamp
+        SELECT chat_session_id, user_name, sender, message, timestamp, is_read
         FROM chat_messages ORDER BY id ASC
     ''')
     rows = cursor.fetchall()
@@ -364,10 +374,22 @@ def get_admin_chat_history():
         sessions[sid]['messages'].append({
             'sender': r['sender'],
             'message': r['message'],
-            'timestamp': r['timestamp']
+            'timestamp': r['timestamp'],
+            'is_read': bool(r['is_read']) if r['is_read'] is not None else False
         })
 
     return jsonify({"success": True, "sessions": sessions})
+
+# Admin API: Chat suhbatini o'chirish
+@app.route('/api/admin/chat-sessions/<session_id>', methods=['DELETE'])
+@admin_required
+def delete_chat_session(session_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM chat_messages WHERE chat_session_id = ?', (session_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Chat suhbati muvaffaqiyatli o'chirildi!"})
 
 # Chat xabarlarni o'qilgan deb belgilash
 @app.route('/api/chat/messages/<session_id>', methods=['GET'])
@@ -463,6 +485,7 @@ def handle_send_message(data):
 
 # Admin API: Rasm yuklash
 @app.route('/api/admin/upload', methods=['POST'])
+@admin_required
 def upload_image():
     file = request.files.get('file') or request.files.get('image')
     if not file or file.filename == '':
@@ -674,6 +697,7 @@ def rate_book(book_id):
 
 # Admin API: Kitob qo'shish
 @app.route('/api/admin/books', methods=['POST'])
+@admin_required
 def add_book():
     data = request.get_json() or {}
     title = data.get('title')
@@ -712,6 +736,7 @@ def add_book():
 
 # Admin API: Kitobni tahrirlash
 @app.route('/api/admin/books/<int:book_id>', methods=['PUT'])
+@admin_required
 def update_book(book_id):
     data = request.get_json() or {}
     conn = get_db_connection()
@@ -746,6 +771,7 @@ def update_book(book_id):
 
 # Admin API: Kitobni o'chirish
 @app.route('/api/admin/books/<int:book_id>', methods=['DELETE'])
+@admin_required
 def delete_book(book_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -757,6 +783,7 @@ def delete_book(book_id):
 
 # Admin API: Buyurtmalar
 @app.route('/api/admin/orders', methods=['GET'])
+@admin_required
 def get_orders():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -773,6 +800,7 @@ def get_orders():
 # Admin API: Buyurtma statusi (Yig'ilmoqda statusiga o'tganda sonidan ayirish)
 @app.route('/api/admin/orders/<int:order_id>/status', methods=['PUT'])
 @app.route('/api/admin/orders/update-status', methods=['POST'])
+@admin_required
 def update_order_status(order_id=None):
     data = request.get_json() or {}
     if not order_id:
@@ -807,21 +835,38 @@ def update_order_status(order_id=None):
     conn.close()
     return jsonify({"success": True, "message": f"Status '{new_status}'ga o'zgartirildi va zaxira (soni) yangilandi!"})
 
+# Admin API: Buyurtmani o'chirish
+@app.route('/api/admin/orders/<int:order_id>', methods=['DELETE'])
+@admin_required
+def delete_order(order_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM orders WHERE order_id = ?', (order_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "message": "Buyurtma bazadan o'chirildi!"})
+
 # User Track API
 @app.route('/api/orders/track', methods=['GET'])
 def track_orders():
     phone = request.args.get('phone', '').strip()
-    if not phone:
+    email = request.args.get('email', '').strip()
+    if not phone and not email:
         return jsonify({"success": True, "orders": []})
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM orders WHERE phone = ? ORDER BY order_id DESC', (phone,))
+    if phone and email:
+        cursor.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (phone, email))
+    else:
+        q_val = phone or email
+        cursor.execute('SELECT * FROM orders WHERE phone = ? OR customer_name = ? ORDER BY order_id DESC', (q_val, q_val))
+
     rows = cursor.fetchall()
     orders_list = []
     for r in rows:
         o = dict(r)
-        o['items'] = json.loads(o['items_json'])
+        o['items'] = json.loads(o['items_json'] or '[]')
         orders_list.append(o)
     conn.close()
     return jsonify({"success": True, "orders": orders_list})
